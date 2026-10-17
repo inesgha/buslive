@@ -63,6 +63,34 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   Corepack 0.34.
 - **TypeScript 6.0.x** : TypeScript 7 n'est pas encore supporté par typescript-eslint
   (< 6.1) ni par ts-jest (< 7).
+- **Prisma 7.10.1** (CLI et client à la même version exacte, sans `^`). L'étiquette
+  npm `latest` de `prisma` pointe vers une 8.0.0-rc : ne pas suivre la notification
+  « Update available ».
+- **NestJS 12, sans `@nestjs/cli`** : toutes les versions de `@nestjs/cli` 12 exigent
+  Node ≥ 22.22.3 (via `@angular-devkit`). Le build utilise `tsc`, le mode dev
+  `tsc-watch`, et les fichiers se créent à la main (pas de `nest generate`).
+
+## Particularités de l'API (apps/api)
+
+- NestJS 12 est publié **uniquement en ESM**. L'API reste compilée en **CommonJS**
+  (`module: NodeNext` sans `"type": "module"`) : Node 22 charge l'ESM depuis du
+  CommonJS (`require(esm)`).
+- Les **tests Jest tournent en mode ESM** (`node --experimental-vm-modules`, config
+  `jest.base.cjs`, `tsconfig.jest.json`), car Jest ne supporte `require(esm)`
+  qu'à partir de Node 24.9. Dans un test, importer `jest` :
+  `import { jest } from '@jest/globals'`.
+- Injection de dépendances : ne **jamais** importer une classe injectée avec
+  `import type` (les décorateurs ont besoin de la classe à l'exécution). La config
+  ESLint de `apps/api` est réglée pour ne pas proposer cette conversion.
+- Prisma 7 : client généré dans `src/generated/prisma` (ignoré par git, recréé
+  par `pnpm install`), connexion via `@prisma/adapter-pg`, config dans
+  `prisma.config.ts`. Les extensions PostgreSQL sont créées par la migration `0_init`.
+- Variables d'environnement validées par zod au démarrage (`src/config/env.schema.ts`).
+  Toute nouvelle variable doit y être ajoutée, ainsi que dans `apps/api/.env.example`.
+- Routes préfixées `/api/v1`. Santé : `/api/v1/health` (liveness) et
+  `/api/v1/health/ready` (base + PostGIS). Swagger : `/api/docs` (hors production).
+- Si Node passe à ≥ 24.9 : on pourra repasser Jest en mode CommonJS classique et
+  réinstaller `@nestjs/cli`.
 
 ## Commandes
 
@@ -70,7 +98,10 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
 pnpm install          # installer les dépendances
 pnpm build            # compiler les packages
 pnpm typecheck        # vérifier les types
-pnpm test             # lancer les tests
+pnpm test             # lancer les tests unitaires
+pnpm test:e2e         # tests de bout en bout (base Docker requise)
+pnpm dev:api          # API en mode développement (http://localhost:3000/api/v1)
+pnpm --filter @buslive/api prisma:migrate   # créer / appliquer une migration
 pnpm lint             # ESLint
 pnpm format           # Prettier (écriture)
 pnpm db:up            # démarrer PostgreSQL + PostGIS

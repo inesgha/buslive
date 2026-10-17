@@ -52,18 +52,37 @@ Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
    pnpm install
    ```
 
-3. Créer le fichier d'environnement, puis y changer le mot de passe :
+3. Créer les fichiers d'environnement, puis y mettre **le même mot de passe**
+   (`POSTGRES_PASSWORD` dans `.env`, et dans `DATABASE_URL` de `apps/api/.env`) :
 
    ```bash
-   cp .env.example .env              # bash / Git Bash
-   Copy-Item .env.example .env       # PowerShell
+   # bash / Git Bash
+   cp .env.example .env
+   cp apps/api/.env.example apps/api/.env
    ```
 
-4. Démarrer la base de données :
+   ```powershell
+   # PowerShell
+   Copy-Item .env.example .env
+   Copy-Item apps/api/.env.example apps/api/.env
+   ```
+
+4. Démarrer la base de données et appliquer les migrations :
 
    ```bash
    pnpm db:up
+   pnpm --filter @buslive/api prisma:deploy
    ```
+
+5. Lancer l'API :
+
+   ```bash
+   pnpm dev:api
+   ```
+
+   - Santé : <http://localhost:3000/api/v1/health>
+   - Santé de la base : <http://localhost:3000/api/v1/health/ready>
+   - Documentation Swagger : <http://localhost:3000/api/docs>
 
 ## Commandes utiles
 
@@ -71,7 +90,9 @@ Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
 | ---------------- | ------------------------------------------------------ |
 | `pnpm build`     | Compile les packages                                   |
 | `pnpm typecheck` | Vérifie les types TypeScript                           |
-| `pnpm test`      | Lance les tests Jest                                   |
+| `pnpm test`      | Lance les tests unitaires Jest                         |
+| `pnpm test:e2e`  | Lance les tests de bout en bout (base démarrée)        |
+| `pnpm dev:api`   | Lance l'API avec rechargement automatique              |
 | `pnpm lint`      | Analyse le code avec ESLint (`lint:fix` pour corriger) |
 | `pnpm format`    | Formate le code avec Prettier                          |
 | `pnpm db:up`     | Démarre PostgreSQL + PostGIS                           |

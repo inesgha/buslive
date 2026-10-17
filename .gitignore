@@ -9,6 +9,9 @@ build/
 # Tests
 coverage/
 
+# Client Prisma généré (recréé par « pnpm install » / « prisma generate »)
+apps/api/src/generated/
+
 # Secrets : seuls les fichiers .env.example sont versionnés
 .env
 .env.*

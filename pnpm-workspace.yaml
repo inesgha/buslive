@@ -6,9 +6,16 @@ packages:
 
 # Par sécurité, pnpm n'exécute pas les scripts d'installation (postinstall…)
 # des dépendances sans accord explicite. On décide ici, paquet par paquet :
-#   true  → autorisé (esbuild télécharge son binaire natif, utilisé par tsup)
-#   false → refusé volontairement (binaires précompilés déjà fournis)
+#   true  → autorisé (téléchargement d'un binaire natif nécessaire)
+#   false → refusé volontairement
 allowBuilds:
+  # binaire natif utilisé par tsup
   esbuild: true
+  # moteur de migrations de Prisma (schema engine)
+  prisma: true
+  '@prisma/engines': true
+  # binaires précompilés déjà fournis via des dépendances optionnelles
   '@parcel/watcher': false
   unrs-resolver: false
+  # Télémétrie embarquée par swagger-ui : inutile, et envoie des données à l'extérieur.
+  '@scarf/scarf': false

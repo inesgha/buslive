@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Résolution « à la Node ». Sans "type": "module" dans package.json,
+    // le code est compilé en CommonJS, le format attendu par NestJS.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "target": "ES2023",
+    // Indispensables à l'injection de dépendances de NestJS : les décorateurs
+    // (@Injectable, @Controller…) lisent les types des paramètres à l'exécution.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": false,
+    "declaration": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["node", "jest"]
+  },
+  "include": ["src", "test", "prisma.config.ts"]
+}

@@ -1,0 +1,15 @@
+// Schéma de la base BusLive.
+// Les modèles métier (gouvernorats, lignes, arrêts, horaires…) arrivent en phase 3.
+// La connexion (DATABASE_URL) est définie dans prisma.config.ts.
+
+generator client {
+  provider     = "prisma-client"
+  // Client généré dans le code source (ignoré par git), régénéré par « pnpm install ».
+  output       = "../src/generated/prisma"
+  // NestJS tourne en CommonJS.
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}

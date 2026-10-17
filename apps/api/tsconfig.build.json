@@ -1,0 +1,10 @@
+{
+  // Build de production : uniquement src/, sans les tests.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "exclude": ["**/*.test.ts", "**/*.e2e-test.ts"]
+}

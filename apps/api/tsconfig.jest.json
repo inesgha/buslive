@@ -1,0 +1,12 @@
+{
+  // Compilation des tests par ts-jest, en mode ESM.
+  // NestJS 12 est publié uniquement en ESM : sous Node 22, Jest ne sait le charger
+  // que si les tests eux-mêmes sont des modules ESM. Le code de l'API reste compilé
+  // en CommonJS pour l'exécution réelle (tsconfig.build.json).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "isolatedModules": true
+  }
+}
