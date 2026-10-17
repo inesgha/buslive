@@ -1,0 +1,6 @@
+{
+  "name": "@buslive/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "API BusLive : NestJS, Prisma, PostgreSQL + PostGIS, Socket.io."
+}

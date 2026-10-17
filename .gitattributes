@@ -1,0 +1,15 @@
+# Force les fins de ligne LF dans le dépôt, même sous Windows.
+# Évite les faux diffs et les scripts shell cassés dans les conteneurs Docker.
+* text=auto eol=lf
+
+# Fichiers binaires : aucune conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary

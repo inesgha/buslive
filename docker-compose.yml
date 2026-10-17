@@ -1,0 +1,47 @@
+# Services locaux de développement.
+# Les identifiants viennent du fichier .env (copie de .env.example).
+#
+#   pnpm db:up                       → démarre PostgreSQL + PostGIS
+#   docker compose --profile tools up -d   → démarre aussi Adminer (http://localhost:8080)
+
+name: buslive
+
+services:
+  db:
+    # PostgreSQL 17 + PostGIS 3.5 (requêtes géographiques : arrêts proches, distances…)
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Définis POSTGRES_USER dans .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définis POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Définis POSTGRES_DB dans .env}
+      TZ: Africa/Tunis
+      PGTZ: Africa/Tunis
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # Les données survivent à « docker compose down » (mais pas à « down -v »).
+      - db-data:/var/lib/postgresql/data
+      # Scripts exécutés une seule fois, à la création de la base.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    # Interface web optionnelle pour explorer la base (profil « tools »).
+    image: adminer:5
+    profiles: ['tools']
+    restart: unless-stopped
+    ports:
+      - '${ADMINER_PORT:-8080}:8080'
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

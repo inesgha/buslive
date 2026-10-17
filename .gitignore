@@ -1,0 +1,45 @@
+# Dépendances
+node_modules/
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Tests
+coverage/
+
+# Secrets : seuls les fichiers .env.example sont versionnés
+.env
+.env.*
+!.env.example
+
+# Expo / React Native (phase 4)
+.expo/
+expo-env.d.ts
+android/
+ios/
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+
+# Logs et fichiers système
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Réglages locaux de l'assistant de code
+.claude/settings.local.json
+git check-ignore .env CLAUDE.md .claude/settings.json

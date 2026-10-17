@@ -1,0 +1,6 @@
+{
+  "name": "@buslive/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Application mobile BusLive : React Native + Expo (expo-router), react-native-maps, i18next."
+}

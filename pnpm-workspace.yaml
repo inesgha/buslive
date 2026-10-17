@@ -1,0 +1,14 @@
+# Déclare les packages du monorepo : chaque dossier de apps/ et packages/
+# qui contient un package.json devient un « workspace ».
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Par sécurité, pnpm n'exécute pas les scripts d'installation (postinstall…)
+# des dépendances sans accord explicite. On décide ici, paquet par paquet :
+#   true  → autorisé (esbuild télécharge son binaire natif, utilisé par tsup)
+#   false → refusé volontairement (binaires précompilés déjà fournis)
+allowBuilds:
+  esbuild: true
+  '@parcel/watcher': false
+  unrs-resolver: false
