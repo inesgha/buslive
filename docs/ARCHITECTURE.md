@@ -31,6 +31,26 @@ cible, et précise ce qui existe déjà.
 - **Socket.io** diffuse les positions en direct. Chaque ligne a sa « room », et
   un client ne reçoit que les lignes qu'il regarde.
 
+## Comptes et authentification (phase 2, en place)
+
+- **Sans compte**, on consulte la carte, les lignes et les horaires. **Avec un
+  compte**, on partage sa position, on signale, on gère ses favoris et ses
+  alertes.
+- Identifiant : email + mot de passe, haché avec argon2id. Un champ `phone`
+  (+216) est réservé à une future connexion par SMS.
+- **Deux jetons** :
+  - un access token JWT court (15 min), vérifié sans accès à la base ;
+  - un refresh token opaque (30 j), révocable, dont seule l'empreinte est
+    stockée.
+- **Rotation** à chaque rafraîchissement. Si un ancien jeton est présenté à
+  nouveau, toute la session est révoquée.
+- **Sécurisé par défaut** : toutes les routes exigent un jeton, sauf celles
+  marquées `@Public()`. Les rôles USER < MODERATOR < ADMIN préparent la
+  modération.
+- `/auth/login` et `/auth/register` sont limités en nombre de tentatives par
+  adresse IP. Les compteurs sont en mémoire pour l'instant, et passeront sur
+  Redis s'il y a plusieurs instances.
+
 ## Le flux « Je suis dans le bus » (phase 6)
 
 1. Le passager confirme la ligne et le sens. L'app envoie sa position GPS à

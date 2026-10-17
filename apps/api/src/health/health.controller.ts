@@ -8,9 +8,12 @@ import {
 } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 
+import { Public } from '../auth/decorators/public.decorator';
 import { PostgisHealthIndicator } from './postgis.health';
 
 @ApiTags('Santé')
+// Les sondes de santé (hébergeur, supervision) n'ont pas de compte.
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(

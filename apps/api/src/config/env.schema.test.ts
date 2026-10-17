@@ -2,6 +2,7 @@ import { validateEnv } from './env.schema';
 
 const validEnv = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/buslive?schema=public',
+  JWT_ACCESS_SECRET: 'x'.repeat(32),
 };
 
 describe('validateEnv', () => {
@@ -10,6 +11,8 @@ describe('validateEnv', () => {
     expect(env.NODE_ENV).toBe('development');
     expect(env.PORT).toBe(3000);
     expect(env.CORS_ORIGINS).toEqual([]);
+    expect(env.JWT_ACCESS_TTL_SECONDS).toBe(900);
+    expect(env.REFRESH_TOKEN_TTL_DAYS).toBe(30);
   });
 
   it('convertit PORT en nombre et découpe CORS_ORIGINS', () => {
@@ -23,14 +26,34 @@ describe('validateEnv', () => {
   });
 
   it('refuse une configuration sans DATABASE_URL', () => {
-    expect(() => validateEnv({})).toThrow(/DATABASE_URL/);
+    expect(() => validateEnv({ JWT_ACCESS_SECRET: validEnv.JWT_ACCESS_SECRET })).toThrow(
+      /DATABASE_URL/,
+    );
   });
 
   it('refuse une URL qui n’est pas PostgreSQL', () => {
-    expect(() => validateEnv({ DATABASE_URL: 'mysql://localhost/buslive' })).toThrow(/PostgreSQL/);
+    expect(() => validateEnv({ ...validEnv, DATABASE_URL: 'mysql://localhost/buslive' })).toThrow(
+      /PostgreSQL/,
+    );
   });
 
   it('refuse un port invalide', () => {
     expect(() => validateEnv({ ...validEnv, PORT: 'abc' })).toThrow(/PORT/);
+  });
+
+  it('refuse un secret JWT trop court', () => {
+    expect(() => validateEnv({ ...validEnv, JWT_ACCESS_SECRET: 'court' })).toThrow(
+      /JWT_ACCESS_SECRET/,
+    );
+  });
+
+  it('refuse le secret d’exemple en production', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        NODE_ENV: 'production',
+        JWT_ACCESS_SECRET: 'change-moi-change-moi-change-moi-change-moi',
+      }),
+    ).toThrow(/valeur d’exemple/);
   });
 });

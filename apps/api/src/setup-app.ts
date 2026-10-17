@@ -39,6 +39,8 @@ export function setupSwagger(app: INestApplication): void {
       .setTitle('BusLive API')
       .setDescription('API de BusLive : transport en commun en temps réel en Tunisie.')
       .setVersion('1')
+      // Bouton « Authorize » : coller l'accessToken pour tester les routes protégées.
+      .addBearerAuth()
       .build(),
   );
   SwaggerModule.setup(`${API_PREFIX}/docs`, app, document);

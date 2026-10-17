@@ -251,3 +251,137 @@ feat(api): socle NestJS, Prisma 7 et routes de santé
 - /health (liveness) et /health/ready (PostgreSQL + PostGIS, 503 si panne)
 - tests unitaires et e2e (Jest en mode ESM)
 ```
+
+---
+
+## Phase 2 — Authentification (17/10/2026)
+
+### Ce qui a été fait et pourquoi
+
+- **Identifiant : email + mot de passe**, comme tu l'as choisi. La colonne
+  `phone` (+216, unique, facultative) et le schéma `TunisianPhoneSchema` sont
+  prêts pour une future connexion par SMS.
+- **Mots de passe hachés avec argon2id** (`@node-rs/argon2`, paramètres OWASP :
+  19 Mio, 2 itérations). Le paquet fournit des binaires précompilés : aucun
+  script d'installation à autoriser.
+- **Deux jetons** :
+  - un access token JWT HS256 de 15 min, avec émetteur et destinataire
+    vérifiés, et seul l'algorithme HS256 accepté ;
+  - un refresh token opaque de 256 bits valable 30 jours, dont **seule
+    l'empreinte SHA-256** est stockée.
+- **Rotation avec détection de réutilisation** : chaque `/auth/refresh`
+  remplace le jeton. Si un ancien jeton revient, toute la « famille » (la
+  session) est révoquée. Une mise à jour conditionnelle garantit qu'une seule
+  requête peut utiliser un jeton donné, même si deux arrivent en même temps.
+- **Sécurisé par défaut** : `JwtAuthGuard` est global, et `@Public()` ouvre
+  explicitement une route. `@MinRole()`, avec la hiérarchie
+  USER < MODERATOR < ADMIN, est prêt pour la modération.
+- **Routes** : `register`, `login`, `refresh`, `logout` et `me` sous
+  `/api/v1/auth`.
+  - Même message pour un email inconnu et pour un mauvais mot de passe, avec un
+    temps de réponse constant (hachage factice).
+  - Un champ `role` envoyé par le client est ignoré.
+  - Un email déjà pris renvoie 409.
+- **Validation avec zod** : les schémas de `@buslive/shared` (`RegisterSchema`,
+  `LoginSchema`, `AuthResponseSchema`…) serviront aussi à l'app mobile. Côté
+  API :
+  - `ZodValidationPipe` renvoie 400 avec, pour chaque champ en erreur, son
+    chemin, un code et un message ;
+  - Swagger affiche les formats grâce à `z.toJSONSchema`, et le bouton
+    « Authorize » permet d'utiliser un jeton.
+- **Base de données** : tables `users` et `refresh_tokens` en snake_case. Les
+  enums `Role` et `Locale` sont vérifiés par un test contre `@buslive/shared`.
+- **Tests e2e sur une base séparée `buslive_test`**, créée et migrée
+  automatiquement. Le vidage des tables refuse toute base qui ne finit pas par
+  `_test`.
+
+### Écarts par rapport au plan
+
+- **Limitation des tentatives : guard maison au lieu de `@nestjs/throttler`.**
+  `@nestjs/throttler` est publié en CommonJS et charge NestJS 12 (ESM). Il
+  fonctionne à l'exécution, mais Jest ne peut pas le charger sous Node 22.19.
+  Tu as choisi de garder Node 22.19, donc j'ai écrit `@RateLimit()` :
+  - fenêtre fixe en mémoire, par route et par IP ;
+  - réponse 429 avec l'en-tête `Retry-After` ;
+  - nettoyage automatique des compteurs expirés ;
+  - 6 tests unitaires et 1 test e2e.
+
+  Les variables s'appellent `RATE_LIMIT_MAX` et `RATE_LIMIT_WINDOW_SECONDS`.
+
+- **Décorateur `@MinRole()`** au lieu de `@Roles()` : le nom dit clairement
+  « au moins ce rôle ».
+- **Ajouts trouvés en testant** :
+  - Prisma 7 ne régénère plus le client après `migrate dev`. Le script
+    `prisma:migrate` enchaîne donc `generate` ;
+  - un nom mal encodé (caractère `U+FFFD`, par exemple envoyé par `curl` sous
+    Windows) est refusé, plutôt qu'enregistré abîmé. L'UTF-8, y compris
+    l'arabe, a été vérifié de bout en bout jusqu'à la base.
+
+### Fichiers créés ou modifiés
+
+```
+packages/shared/src/auth.ts, auth.test.ts, user.ts, user.test.ts (créés)
+packages/shared/src/index.ts (modifié)
+apps/api/prisma/schema.prisma (User, RefreshToken, enums Role et Locale)
+apps/api/prisma/migrations/20261017205443_auth/migration.sql
+apps/api/src/auth/auth.module.ts, auth.controller.ts, auth.service.ts, auth.types.ts
+apps/api/src/auth/password.service.ts (+ test), refresh-token.service.ts
+apps/api/src/auth/decorators/public.decorator.ts, min-role.decorator.ts,
+                              current-user.decorator.ts
+apps/api/src/auth/guards/jwt-auth.guard.ts (+ test), roles.guard.ts (+ test)
+apps/api/src/users/users.module.ts, users.service.ts, enums-sync.test.ts
+apps/api/src/common/zod-validation.pipe.ts (+ test), zod-openapi.ts
+apps/api/src/common/rate-limit/rate-limit.decorator.ts, rate-limit.guard.ts (+ test),
+                               rate-limit.store.ts, rate-limit.module.ts
+apps/api/src/config/env.schema.ts (+ test) : JWT_*, REFRESH_TOKEN_TTL_DAYS, RATE_LIMIT_*
+apps/api/src/app.module.ts, setup-app.ts (Swagger bearer), health/health.controller.ts (@Public)
+apps/api/test/test-env.cjs, global-setup.cjs, setup-env.cjs, utils.ts (créés)
+apps/api/test/auth.e2e-test.ts (créé), health.e2e-test.ts (modifié)
+apps/api/jest.e2e.config.cjs, package.json, .env.example, README.md
+pnpm-lock.yaml, CLAUDE.md, docs/ARCHITECTURE.md, JOURNAL.md
+```
+
+Fichier local non versionné : `apps/api/.env` (secret JWT aléatoire de 64
+caractères ajouté).
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm db:up
+pnpm --filter @buslive/api prisma:deploy
+pnpm dev:api                       # puis http://localhost:3000/api/docs
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build
+```
+
+Résultats obtenus :
+
+- lint, format, typecheck et build sans erreur ;
+- tests unitaires : 25 dans shared et 36 dans l'API ; tests e2e : 22 sur la
+  base `buslive_test` ;
+- essai manuel avec `curl` : inscription 201, `/me` 401 sans jeton puis 200
+  avec, et login refusé 5 fois (401) puis bloqué (429) ;
+- Swagger affiche les 7 routes, avec le schéma de sécurité « bearer ».
+
+### À configurer soi-même
+
+- **En production** : générer un `JWT_ACCESS_SECRET` propre à chaque
+  environnement, avec la commande indiquée dans `apps/api/.env.example`. L'API
+  refuse de démarrer en production avec la valeur d'exemple.
+- **Si un ancien `.env` contient encore `AUTH_THROTTLE_*`** : ces variables
+  sont renommées `RATE_LIMIT_MAX` et `RATE_LIMIT_WINDOW_SECONDS` (j'ai déjà
+  mis à jour ton `apps/api/.env`).
+- **Pour le mobile (phase 4)** : stocker le refresh token dans
+  `expo-secure-store`, et ne lancer qu'un seul `/auth/refresh` à la fois.
+
+### Message de commit proposé
+
+```
+feat(auth): inscription, connexion et jetons JWT avec rotation
+
+- comptes email + mot de passe (argon2id), rôles USER/MODERATOR/ADMIN
+- access token JWT 15 min + refresh token opaque 30 j (empreinte SHA-256)
+- rotation des refresh tokens avec révocation de session en cas de réutilisation
+- guard global (@Public, @MinRole, @CurrentUser) et limitation des tentatives (@RateLimit)
+- schémas zod partagés, validation des requêtes et documentation Swagger
+- tests e2e sur une base de test séparée créée automatiquement
+```

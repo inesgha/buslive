@@ -85,6 +85,34 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
 - Prisma 7 : client généré dans `src/generated/prisma` (ignoré par git, recréé
   par `pnpm install`), connexion via `@prisma/adapter-pg`, config dans
   `prisma.config.ts`. Les extensions PostgreSQL sont créées par la migration `0_init`.
+  `prisma migrate dev` ne régénère plus le client : utiliser le script
+  `prisma:migrate` (qui enchaîne `generate`).
+- Base de données : modèles en camelCase, tables et colonnes en snake_case
+  (`@map` / `@@map`). Les enums `Role` et `Locale` existent dans Prisma ET dans
+  `@buslive/shared` : un test (`enums-sync.test.ts`) vérifie qu'ils restent identiques.
+- **Les dépendances CommonJS qui importent NestJS ne sont pas testables avec Jest
+  sous Node 22** (elles font `require()` d'un paquet ESM). C'est le cas de
+  `@nestjs/throttler` et `nestjs-pino`. Vérifier le champ `type` d'un paquet Nest
+  avant de l'adopter (`npm view <paquet> type` doit donner `module`).
+- **Authentification** (`src/auth/`) :
+  - guard global `JwtAuthGuard` : toutes les routes exigent un access token, sauf
+    celles marquées `@Public()` ;
+  - `@MinRole('MODERATOR')` exige un rôle minimal (USER < MODERATOR < ADMIN) ;
+  - `@CurrentUser()` injecte `{ id, role }` ;
+  - access token JWT HS256 (15 min), refresh token opaque (30 j) dont seule
+    l'empreinte SHA-256 est stockée, rotation à chaque `/auth/refresh` ;
+  - réutilisation d'un ancien refresh token = révocation de toute la session.
+    Le client mobile doit donc **sérialiser** ses rafraîchissements (une seule
+    requête `/auth/refresh` à la fois).
+- **Limitation des requêtes** : guard maison `@RateLimit()` (`src/common/rate-limit/`),
+  fenêtre fixe en mémoire par route et par IP, 429 + `Retry-After`. À passer sur
+  Redis s'il y a plusieurs instances de l'API.
+- Corps de requête validés par `ZodValidationPipe` avec les schémas de
+  `@buslive/shared` ; documentés dans Swagger via `zodToOpenApi()`.
+- **Tests e2e** : base séparée `<nom>_test` (dérivée de `DATABASE_URL`), créée et
+  migrée automatiquement par `test/global-setup.cjs`. `resetDatabase()` refuse de
+  vider une base qui ne finit pas par `_test`. Nouvelle table → l'ajouter au
+  `TRUNCATE` de `test/utils.ts`.
 - Variables d'environnement validées par zod au démarrage (`src/config/env.schema.ts`).
   Toute nouvelle variable doit y être ajoutée, ainsi que dans `apps/api/.env.example`.
 - Routes préfixées `/api/v1`. Santé : `/api/v1/health` (liveness) et
