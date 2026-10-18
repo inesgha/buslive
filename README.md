@@ -67,12 +67,17 @@ Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
    Copy-Item apps/api/.env.example apps/api/.env
    ```
 
-4. Démarrer la base de données et appliquer les migrations :
+4. Démarrer la base de données, appliquer les migrations et insérer les données
+   initiales (gouvernorats + réseau de démonstration de Mahdia et Ksour Essef) :
 
    ```bash
    pnpm db:up
    pnpm --filter @buslive/api prisma:deploy
+   pnpm --filter @buslive/api db:seed
    ```
+
+   ⚠️ Les lignes et horaires de démonstration sont **inventés** (voir
+   `apps/api/prisma/seed/data/mahdia-demo.ts`).
 
 5. Lancer l'API :
 

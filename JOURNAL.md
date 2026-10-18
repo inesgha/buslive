@@ -385,3 +385,123 @@ feat(auth): inscription, connexion et jetons JWT avec rotation
 - schémas zod partagés, validation des requêtes et documentation Swagger
 - tests e2e sur une base de test séparée créée automatiquement
 ```
+
+---
+
+## Phase 3 — Modèle de données du réseau (18/10/2026)
+
+### Ce qui a été fait et pourquoi
+
+- **Modèle inspiré de GTFS**, le format standard des réseaux de transport, en
+  plus simple. Les tables : `governorates`, `localities`, `operators`, `lines`,
+  `line_directions` (aller/retour, avec le tracé), `stops`, `line_stops`
+  (arrêts dans l'ordre et temps de trajet), `service_calendars` et
+  `departures`. Le modèle reste familier, et on pourra importer des données
+  GTFS plus tard.
+- **Horaires : seulement les départs du terminus**, en minutes depuis minuit.
+  L'heure à chaque arrêt vaut le départ plus `minutesFromStart`. Il y a donc
+  beaucoup moins de données à saisir et à vérifier.
+- **Calendriers** avec des jours, une période et une priorité. Le Ramadan
+  (priorité 10) remplace les horaires normaux pour les lignes qui en ont, et
+  les autres lignes gardent leurs horaires habituels.
+- **PostGIS** :
+  - `stops.location` est calculé automatiquement par un trigger à partir de
+    latitude et longitude, avec un index spatial GIST ;
+  - `line_directions.shape` contient le tracé ;
+  - des contraintes `CHECK` garantissent des coordonnées plausibles.
+- **Statuts** `PENDING` / `ACTIVE` / `REJECTED` / `ARCHIVED` et
+  `proposedById` sur les lignes et les arrêts, déjà prêts pour les propositions
+  des utilisateurs. L'API ne montre que les éléments `ACTIVE` d'un gouvernorat
+  actif.
+- **Calculs d'horaires dans `@buslive/shared/schedule.ts`** (`departuresForDate`,
+  `passingMinutes`, `isCalendarActiveOn`…) : l'API et le mobile, hors ligne,
+  feront exactement le même calcul.
+- **Routes publiques** : `GET /governorates`, `/lines?governorate=`,
+  `/lines/:id` et `/stops/:id`. Leurs schémas zod sont partagés et documentés
+  dans Swagger, y compris les réponses. Le détail d'une ligne, environ 7,5 Ko,
+  suffit pour calculer les horaires de n'importe quel jour.
+- **Seed idempotent** (`db:seed`) :
+  - les 24 gouvernorats sont des **données réelles**, et seul Mahdia est
+    activé ;
+  - le réseau de démonstration contient 4 localités, 14 arrêts, 4 lignes,
+    4 calendriers et 372 départs ;
+  - les **lignes et les horaires sont inventés**, et les coordonnées sont
+    approximatives : tout est marqué « données de test » ;
+  - en production, seuls les gouvernorats sont insérés.
+
+### Écarts et problèmes rencontrés
+
+- **Colonne générée remplacée par un trigger.** Comme prévu dans le plan, j'ai
+  vérifié comment Prisma réagit à une colonne générée : il prend son expression
+  pour une valeur par défaut, et voudrait la supprimer à chaque migration. Pour
+  éviter un `prisma migrate reset` (que Prisma refuse sans ton accord
+  explicite), j'ai laissé la migration `network` intacte et ajouté une
+  migration corrective, `stops_location_trigger`. Celle-ci transforme la
+  colonne en colonne normale (`DROP EXPRESSION`, sans perte de données) et
+  crée le trigger. Résultat : `migrate diff` est vide, et Prisma ne voit plus
+  aucun écart.
+- **`prisma migrate dev` bloqué**, lancé hors d'un terminal interactif : il
+  attendait un nom de migration et gardait un verrou sur la base. Le processus
+  a été arrêté. La règle est notée dans CLAUDE.md : `--create-only`, puis
+  `migrate deploy`.
+- **Routes « arrêts proches » et « prochains bus »** : prévues en phase 5,
+  comme annoncé. La requête PostGIS `ST_DWithin` est déjà testée en e2e.
+
+### Fichiers créés ou modifiés
+
+```
+apps/api/prisma/schema.prisma (modèles du réseau + relations User)
+apps/api/prisma/migrations/20261018121216_network/migration.sql
+apps/api/prisma/migrations/20261018122044_stops_location_trigger/migration.sql
+apps/api/prisma/seed/index.ts, seed.ts, types.ts
+apps/api/prisma/seed/data/governorates.ts, mahdia-demo.ts
+apps/api/prisma.config.ts (commande de seed), package.json (db:seed, tsx), tsconfig.json
+apps/api/src/network/network.module.ts, network.controller.ts, network.service.ts, network.mapper.ts
+apps/api/src/common/zod-openapi.ts (réponses Swagger), src/app.module.ts
+apps/api/test/network.e2e-test.ts (créé), test/utils.ts (TRUNCATE étendu)
+packages/shared/src/network.ts, schedule.ts, schedule.test.ts (créés), index.ts
+apps/api/README.md, README.md, CLAUDE.md, docs/ARCHITECTURE.md, JOURNAL.md, pnpm-lock.yaml
+```
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm db:up
+pnpm --filter @buslive/api prisma:deploy
+pnpm --filter @buslive/api db:seed
+pnpm dev:api        # http://localhost:3000/api/docs → section « Réseau »
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build
+```
+
+Résultats obtenus :
+
+- lint, format, typecheck et build sans erreur ;
+- tests unitaires : 42 dans shared et 36 dans l'API ; tests e2e : 39 ;
+- seed lancé deux fois : comptes identiques, 14 arrêts tous avec leur point
+  PostGIS, 8 sens tous avec leur tracé ;
+- distance Mahdia–Ksour Essef calculée par PostGIS : environ 11 km ;
+- calcul hors ligne avec le seul détail de la ligne 10 : 9 passages un lundi,
+  3 un dimanche et 5 pendant le Ramadan ;
+- écart schéma ↔ base : « empty migration ».
+
+### À configurer soi-même
+
+- Ta base de développement contient maintenant les gouvernorats et le réseau de
+  démonstration (seed lancé).
+- **Remplacer les données de test** dès que tu as les vraies lignes et les vrais
+  horaires : modifier `apps/api/prisma/seed/data/mahdia-demo.ts`, puis relancer
+  `db:seed`. Vérifier aussi les coordonnées des arrêts sur place.
+- Les dates du Ramadan 2027 sont approximatives : à ajuster le moment venu.
+
+### Message de commit proposé
+
+```
+feat(network): modèle du réseau, horaires et données de démonstration
+
+- gouvernorats (24, activables), localités, opérateurs, lignes, sens, arrêts
+- arrêts géolocalisés avec PostGIS (point calculé par trigger, index GIST)
+- horaires par départ du terminus + calendriers (semaine, samedi, Ramadan…)
+- calculs d'horaires partagés API / mobile (hors ligne) dans @buslive/shared
+- routes publiques /governorates, /lines, /lines/:id, /stops/:id
+- seed idempotent : 24 gouvernorats réels + réseau de démonstration Mahdia / Ksour Essef
+```

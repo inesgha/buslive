@@ -87,6 +87,36 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   `prisma.config.ts`. Les extensions PostgreSQL sont créées par la migration `0_init`.
   `prisma migrate dev` ne régénère plus le client : utiliser le script
   `prisma:migrate` (qui enchaîne `generate`).
+- **Migrations, règles pour l'assistant** :
+  - ne JAMAIS lancer `prisma migrate dev` sans `--create-only` hors d'un terminal
+    interactif : s'il détecte un écart, il attend un nom de migration et bloque
+    (en gardant un verrou sur la base). Créer avec `--create-only`, relire et
+    éditer le SQL, puis appliquer avec `prisma migrate deploy` ;
+  - vérifier l'absence d'écart schéma ↔ base avec
+    `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`
+    (doit afficher « empty migration ») ;
+  - ne jamais modifier une migration déjà appliquée (son empreinte est vérifiée) :
+    en ajouter une nouvelle ;
+  - `prisma migrate reset` est refusé par Prisma sans l'accord explicite de
+    l'utilisatrice : le lui demander, ne jamais contourner.
+- **PostGIS et Prisma** : les colonnes géographiques sont déclarées
+  `Unsupported("geography(…)")` et lues ou écrites en SQL brut (`$queryRaw`).
+  `stops.location` est calculée par le trigger `stops_set_location` à partir de
+  `latitude`/`longitude` (pas de colonne générée : Prisma la prend pour une valeur
+  par défaut et voudrait la supprimer). Le tracé `line_directions.shape` est
+  écrit par le seed (lignes droites entre arrêts, à remplacer par un vrai tracé).
+- **Réseau** (`src/network/`) : routes publiques `GET /governorates`, `/lines`,
+  `/lines/:id`, `/stops/:id`. Seuls les éléments `ACTIVE` d'un gouvernorat actif
+  sont visibles (filtres `VISIBLE_*` dans `network.service.ts`).
+- **Horaires** : minutes depuis minuit (heure de Tunis), dates « AAAA-MM-JJ ».
+  Les calculs (`departuresForDate`, `passingMinutes`…) sont dans
+  `@buslive/shared/schedule.ts`, pour que l'API et le mobile (hors ligne)
+  calculent la même chose. Calendrier de plus haute priorité = celui qui l'emporte
+  (ex. Ramadan).
+- **Seed** (`pnpm --filter @buslive/api db:seed`) : idempotent (upsert par code).
+  Les 24 gouvernorats sont des données réelles ; `prisma/seed/data/mahdia-demo.ts`
+  contient des **données de test inventées** (lignes, horaires) à remplacer. En
+  production, seuls les gouvernorats sont insérés.
 - Base de données : modèles en camelCase, tables et colonnes en snake_case
   (`@map` / `@@map`). Les enums `Role` et `Locale` existent dans Prisma ET dans
   `@buslive/shared` : un test (`enums-sync.test.ts`) vérifie qu'ils restent identiques.
@@ -130,6 +160,7 @@ pnpm test             # lancer les tests unitaires
 pnpm test:e2e         # tests de bout en bout (base Docker requise)
 pnpm dev:api          # API en mode développement (http://localhost:3000/api/v1)
 pnpm --filter @buslive/api prisma:migrate   # créer / appliquer une migration
+pnpm --filter @buslive/api db:seed          # gouvernorats + réseau de démonstration
 pnpm lint             # ESLint
 pnpm format           # Prettier (écriture)
 pnpm db:up            # démarrer PostgreSQL + PostGIS

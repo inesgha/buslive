@@ -7,6 +7,8 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
+    // Commande lancée par « prisma db seed » (voir prisma/seed/index.ts).
+    seed: 'tsx prisma/seed/index.ts',
   },
   datasource: {
     // process.env plutôt que env('DATABASE_URL') : env() échoue si la variable

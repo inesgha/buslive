@@ -9,6 +9,7 @@ API BusLive : NestJS 12, Prisma 7, PostgreSQL + PostGIS (Socket.io en phase 6).
 cp apps/api/.env.example apps/api/.env      # puis adapter DATABASE_URL et JWT_ACCESS_SECRET
 pnpm db:up                                  # base Docker
 pnpm --filter @buslive/api prisma:deploy    # appliquer les migrations
+pnpm --filter @buslive/api db:seed          # gouvernorats + réseau de démonstration
 pnpm dev:api                                # API + rechargement automatique
 ```
 
@@ -17,6 +18,42 @@ pnpm dev:api                                # API + rechargement automatique
 | `GET http://localhost:3000/api/v1/health`       | Liveness : le processus répond          |
 | `GET http://localhost:3000/api/v1/health/ready` | Readiness : base + PostGIS (503 sinon)  |
 | `http://localhost:3000/api/docs`                | Documentation Swagger (hors production) |
+
+## Réseau (lecture publique)
+
+| Route                                 | Rôle                                                        |
+| ------------------------------------- | ----------------------------------------------------------- |
+| `GET /api/v1/governorates`            | Gouvernorats ouverts dans l'app                             |
+| `GET /api/v1/lines?governorate=TN-53` | Lignes actives (filtre facultatif par gouvernorat)          |
+| `GET /api/v1/lines/:id`               | Détail : sens, arrêts ordonnés, tracé, départs, calendriers |
+| `GET /api/v1/stops/:id`               | Arrêt et lignes qui le desservent                           |
+
+Seuls les éléments **validés** (`ACTIVE`) d'un gouvernorat **activé** sont
+renvoyés. Le détail d'une ligne contient tout ce qu'il faut pour calculer les
+horaires sans réseau, avec les fonctions de `@buslive/shared` :
+
+```ts
+departuresForDate(direction.departures, line.calendars, '2026-10-19'); // départs du jour
+passingMinutes(departure, stop.minutesFromStart); // heure à un arrêt
+```
+
+### Données (seed)
+
+- `prisma/seed/data/governorates.ts` : les 24 gouvernorats (données réelles).
+- `prisma/seed/data/mahdia-demo.ts` : **données de test inventées** (lignes,
+  horaires ; coordonnées approximatives). À remplacer par des données vérifiées,
+  puis relancer `db:seed`. Le seed est idempotent (relançable sans doublons).
+
+### Modèle
+
+```
+Governorate ──< Locality
+     └──< Line ──< LineDirection ──< LineStop >── Stop (point PostGIS)
+                        └──< Departure >── ServiceCalendar
+```
+
+Un horaire = un départ du terminus (minutes depuis minuit) + un calendrier
+(jours, période, priorité). L'heure à chaque arrêt = départ + `minutesFromStart`.
 
 ## Authentification
 
@@ -57,6 +94,7 @@ me(@CurrentUser() user: AuthenticatedUser) { … }   // { id, role }
 | `prisma:deploy`   | Applique les migrations existantes (production, CI)           |
 | `prisma:generate` | Régénère le client Prisma (fait aussi par `pnpm install`)     |
 | `prisma:studio`   | Interface web pour explorer les données                       |
+| `db:seed`         | Insère les gouvernorats et le réseau de démonstration         |
 
 ## Organisation
 
@@ -69,12 +107,14 @@ src/
   common/            ZodValidationPipe, zodToOpenApi, limitation des requêtes
   prisma/            PrismaService (connexion via @prisma/adapter-pg)
   auth/              inscription, connexion, jetons, guards et décorateurs
+  network/           gouvernorats, lignes, arrêts, horaires (lecture)
   users/             accès aux utilisateurs
   health/            routes de santé (Terminus) + indicateur PostGIS
   generated/prisma/  client Prisma généré (ignoré par git)
 prisma/
   schema.prisma      schéma de la base
   migrations/        migrations SQL versionnées
+  seed/              données initiales (gouvernorats, réseau de démonstration)
 test/                tests e2e (base séparée « _test », créée automatiquement)
 ```
 

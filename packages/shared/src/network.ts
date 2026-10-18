@@ -1,0 +1,129 @@
+import { z } from 'zod';
+
+import { GeoPointSchema } from './geo';
+
+/**
+ * Formats des données du réseau (gouvernorats, lignes, arrêts, horaires)
+ * renvoyées par l'API. Chaque nom existe en français ET en arabe : l'app
+ * affiche celui de la langue de l'interface.
+ */
+
+export const LINE_TYPES = ['URBAN', 'SUBURBAN', 'INTERCITY'] as const;
+export const LineTypeSchema = z.enum(LINE_TYPES);
+export type LineType = z.infer<typeof LineTypeSchema>;
+
+export const DIRECTIONS = ['OUTBOUND', 'INBOUND'] as const;
+export const DirectionSchema = z.enum(DIRECTIONS);
+export type Direction = z.infer<typeof DirectionSchema>;
+
+/** Code ISO 3166-2 d'un gouvernorat tunisien, ex. « TN-53 ». */
+export const GovernorateCodeSchema = z
+  .string()
+  .regex(/^TN-\d{2}$/, 'Code de gouvernorat invalide.');
+
+const BilingualName = { nameFr: z.string(), nameAr: z.string() };
+
+export const GovernorateSchema = z.object({
+  id: z.uuid(),
+  code: GovernorateCodeSchema,
+  ...BilingualName,
+});
+export type Governorate = z.infer<typeof GovernorateSchema>;
+
+export const LocalitySchema = z.object({ code: z.string(), ...BilingualName });
+export type Locality = z.infer<typeof LocalitySchema>;
+
+export const OperatorSchema = z.object({ code: z.string(), name: z.string() });
+export type Operator = z.infer<typeof OperatorSchema>;
+
+export const StopSummarySchema = z.object({
+  id: z.uuid(),
+  code: z.string(),
+  ...BilingualName,
+  latitude: z.number(),
+  longitude: z.number(),
+  locality: LocalitySchema.nullable(),
+});
+export type StopSummary = z.infer<typeof StopSummarySchema>;
+
+export const DirectionSummarySchema = z.object({
+  id: z.uuid(),
+  direction: DirectionSchema,
+  headsignFr: z.string(),
+  headsignAr: z.string(),
+});
+export type DirectionSummary = z.infer<typeof DirectionSummarySchema>;
+
+export const LineSummarySchema = z.object({
+  id: z.uuid(),
+  code: z.string(),
+  ...BilingualName,
+  type: LineTypeSchema,
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+  governorateCode: GovernorateCodeSchema,
+  operator: OperatorSchema.nullable(),
+  directions: z.array(DirectionSummarySchema),
+});
+export type LineSummary = z.infer<typeof LineSummarySchema>;
+
+/** Calendrier de service : mêmes règles que CalendarRule (voir schedule.ts). */
+export const ServiceCalendarSchema = z.object({
+  code: z.string(),
+  ...BilingualName,
+  monday: z.boolean(),
+  tuesday: z.boolean(),
+  wednesday: z.boolean(),
+  thursday: z.boolean(),
+  friday: z.boolean(),
+  saturday: z.boolean(),
+  sunday: z.boolean(),
+  startDate: z.iso.date().nullable(),
+  endDate: z.iso.date().nullable(),
+  priority: z.number().int(),
+});
+export type ServiceCalendar = z.infer<typeof ServiceCalendarSchema>;
+
+export const DirectionDetailSchema = DirectionSummarySchema.extend({
+  /** Tracé du parcours (null si inconnu). */
+  shape: z.array(GeoPointSchema).nullable(),
+  /** Arrêts dans l'ordre du parcours. */
+  stops: z.array(
+    z.object({
+      sequence: z.number().int().positive(),
+      minutesFromStart: z.number().int().nonnegative(),
+      stop: StopSummarySchema,
+    }),
+  ),
+  /** Tous les départs du terminus, tous calendriers confondus. */
+  departures: z.array(
+    z.object({ calendarCode: z.string(), departureMinutes: z.number().int().nonnegative() }),
+  ),
+});
+export type DirectionDetail = z.infer<typeof DirectionDetailSchema>;
+
+/**
+ * Détail complet d'une ligne : contient tout ce qu'il faut pour calculer les
+ * horaires sans réseau (départs + calendriers + temps de trajet par arrêt).
+ */
+export const LineDetailSchema = LineSummarySchema.omit({ directions: true }).extend({
+  directions: z.array(DirectionDetailSchema),
+  calendars: z.array(ServiceCalendarSchema),
+});
+export type LineDetail = z.infer<typeof LineDetailSchema>;
+
+export const StopDetailSchema = StopSummarySchema.extend({
+  governorateCode: GovernorateCodeSchema,
+  /** Lignes actives qui desservent l'arrêt, avec le sens concerné. */
+  lines: z.array(
+    LineSummarySchema.omit({ directions: true, operator: true }).extend({
+      directions: z.array(DirectionSummarySchema),
+    }),
+  ),
+});
+export type StopDetail = z.infer<typeof StopDetailSchema>;
+
+/** Paramètres de GET /lines. */
+export const LinesQuerySchema = z.object({
+  governorate: GovernorateCodeSchema.optional(),
+});
+export type LinesQuery = z.infer<typeof LinesQuerySchema>;

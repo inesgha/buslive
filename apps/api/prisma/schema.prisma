@@ -45,6 +45,8 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   refreshTokens RefreshToken[]
+  proposedLines Line[]
+  proposedStops Stop[]
 
   @@map("users")
 }
@@ -69,4 +71,208 @@ model RefreshToken {
   @@index([userId])
   @@index([familyId])
   @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Réseau de transport (phase 3) — inspiré du format standard GTFS, simplifié.
+// ---------------------------------------------------------------------------
+
+/// Cycle de vie des éléments proposables par les utilisateurs (lignes, arrêts).
+/// L'API publique n'affiche que les éléments ACTIVE.
+enum ModerationStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  ARCHIVED
+}
+
+enum LineType {
+  URBAN
+  SUBURBAN
+  INTERCITY
+}
+
+/// Sens d'une ligne : aller (OUTBOUND) ou retour (INBOUND).
+enum Direction {
+  OUTBOUND
+  INBOUND
+}
+
+/// Les 24 gouvernorats. Seuls les gouvernorats actifs sont visibles dans l'app.
+model Governorate {
+  id        String   @id @default(uuid()) @db.Uuid
+  /// Code ISO 3166-2, ex. « TN-53 » pour Mahdia.
+  code      String   @unique
+  nameFr    String   @map("name_fr")
+  nameAr    String   @map("name_ar")
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  localities Locality[]
+  lines      Line[]
+  stops      Stop[]
+
+  @@map("governorates")
+}
+
+/// Ville ou délégation (Mahdia, Ksour Essef…).
+model Locality {
+  id            String @id @default(uuid()) @db.Uuid
+  /// Identifiant stable et lisible, ex. « ksour-essef ».
+  code          String @unique
+  governorateId String @map("governorate_id") @db.Uuid
+  nameFr        String @map("name_fr")
+  nameAr        String @map("name_ar")
+
+  governorate Governorate @relation(fields: [governorateId], references: [id], onDelete: Restrict)
+  stops       Stop[]
+
+  @@index([governorateId])
+  @@map("localities")
+}
+
+/// Société de transport (ex. Société Régionale de Transport).
+model Operator {
+  id      String  @id @default(uuid()) @db.Uuid
+  code    String  @unique
+  name    String
+  website String?
+
+  lines Line[]
+
+  @@map("operators")
+}
+
+model Line {
+  id            String           @id @default(uuid()) @db.Uuid
+  /// Numéro affiché sur le bus, unique dans un gouvernorat.
+  code          String
+  governorateId String           @map("governorate_id") @db.Uuid
+  operatorId    String?          @map("operator_id") @db.Uuid
+  nameFr        String           @map("name_fr")
+  nameAr        String           @map("name_ar")
+  type          LineType
+  /// Couleur sur la carte, format « #RRGGBB ».
+  color         String
+  status        ModerationStatus @default(PENDING)
+  /// Utilisateur qui a proposé la ligne (null pour les données importées).
+  proposedById  String?          @map("proposed_by_id") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  governorate Governorate     @relation(fields: [governorateId], references: [id], onDelete: Restrict)
+  operator    Operator?       @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  proposedBy  User?           @relation(fields: [proposedById], references: [id], onDelete: SetNull)
+  directions  LineDirection[]
+
+  @@unique([governorateId, code])
+  @@index([status])
+  @@map("lines")
+}
+
+/// Un sens de circulation d'une ligne, avec sa destination affichée et son tracé.
+model LineDirection {
+  id         String                                      @id @default(uuid()) @db.Uuid
+  lineId     String                                      @map("line_id") @db.Uuid
+  direction  Direction
+  /// Destination affichée, ex. « vers Ksour Essef ».
+  headsignFr String                                      @map("headsign_fr")
+  headsignAr String                                      @map("headsign_ar")
+  /// Tracé du parcours (PostGIS). Écrit et lu en SQL brut : Prisma ne gère pas ce type.
+  shape      Unsupported("geography(LineString, 4326)")?
+
+  line       Line        @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  stops      LineStop[]
+  departures Departure[]
+
+  @@unique([lineId, direction])
+  @@map("line_directions")
+}
+
+model Stop {
+  id            String                                 @id @default(uuid()) @db.Uuid
+  /// Identifiant stable et lisible, ex. « mahdia-gare-routiere ».
+  code          String                                 @unique
+  governorateId String                                 @map("governorate_id") @db.Uuid
+  localityId    String?                                @map("locality_id") @db.Uuid
+  nameFr        String                                 @map("name_fr")
+  nameAr        String                                 @map("name_ar")
+  latitude      Float
+  longitude     Float
+  /// Point PostGIS CALCULÉ par PostgreSQL à partir de latitude/longitude
+  /// (trigger « stops_set_location », voir la migration « network »). Ne jamais
+  /// l'écrire : il suffit de modifier latitude et longitude.
+  location      Unsupported("geography(Point, 4326)")?
+  status        ModerationStatus                       @default(PENDING)
+  proposedById  String?                                @map("proposed_by_id") @db.Uuid
+  createdAt     DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  governorate Governorate @relation(fields: [governorateId], references: [id], onDelete: Restrict)
+  locality    Locality?   @relation(fields: [localityId], references: [id], onDelete: SetNull)
+  proposedBy  User?       @relation(fields: [proposedById], references: [id], onDelete: SetNull)
+  lineStops   LineStop[]
+
+  /// Index spatial : rend rapides les recherches « arrêts à moins de X mètres ».
+  @@index([location], type: Gist)
+  @@index([governorateId, status])
+  @@map("stops")
+}
+
+/// Arrêts d'un sens, dans l'ordre, avec le temps de trajet depuis le départ.
+model LineStop {
+  directionId      String @map("direction_id") @db.Uuid
+  /// Position dans le parcours : 1, 2, 3…
+  sequence         Int
+  stopId           String @map("stop_id") @db.Uuid
+  /// Minutes entre le départ du terminus et le passage à cet arrêt.
+  minutesFromStart Int    @map("minutes_from_start")
+
+  direction LineDirection @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  stop      Stop          @relation(fields: [stopId], references: [id], onDelete: Restrict)
+
+  @@id([directionId, sequence])
+  @@index([stopId])
+  @@map("line_stops")
+}
+
+/// Jours de circulation (semaine, samedi, Ramadan…), avec une période de validité facultative.
+model ServiceCalendar {
+  id        String    @id @default(uuid()) @db.Uuid
+  code      String    @unique
+  nameFr    String    @map("name_fr")
+  nameAr    String    @map("name_ar")
+  monday    Boolean   @default(false)
+  tuesday   Boolean   @default(false)
+  wednesday Boolean   @default(false)
+  thursday  Boolean   @default(false)
+  friday    Boolean   @default(false)
+  saturday  Boolean   @default(false)
+  sunday    Boolean   @default(false)
+  startDate DateTime? @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  /// Si plusieurs calendriers s'appliquent le même jour à un même sens, celui
+  /// de plus haute priorité l'emporte (ex. Ramadan = 10 remplace Semaine = 0).
+  priority  Int       @default(0)
+
+  departures Departure[]
+
+  @@map("service_calendars")
+}
+
+/// Heure de départ du terminus, pour un sens et un calendrier.
+model Departure {
+  id               String @id @default(uuid()) @db.Uuid
+  directionId      String @map("direction_id") @db.Uuid
+  calendarId       String @map("calendar_id") @db.Uuid
+  /// Minutes depuis minuit, heure de Tunis (450 = 07:30). Peut dépasser 1440 après minuit.
+  departureMinutes Int    @map("departure_minutes")
+
+  direction LineDirection   @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  calendar  ServiceCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@unique([directionId, calendarId, departureMinutes])
+  @@index([calendarId])
+  @@map("departures")
 }

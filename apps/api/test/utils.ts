@@ -32,5 +32,13 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
   if (!row?.db.endsWith('_test')) {
     throw new Error(`Refus de vider la base « ${row?.db} » : ce n'est pas une base de test.`);
   }
-  await prisma.$executeRaw`TRUNCATE TABLE refresh_tokens, users CASCADE`;
+  // Toutes les tables de l'application (pas _prisma_migrations). À compléter
+  // à chaque nouvelle table.
+  await prisma.$executeRaw`
+    TRUNCATE TABLE
+      departures, line_stops, line_directions, lines, service_calendars,
+      stops, localities, operators, governorates,
+      refresh_tokens, users
+    CASCADE
+  `;
 }

@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { validateEnv } from './config/env.schema';
 import { HealthModule } from './health/health.module';
+import { NetworkModule } from './network/network.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { PrismaModule } from './prisma/prisma.module';
     // Avant AuthModule : une requête trop fréquente est rejetée avant tout autre travail.
     RateLimitModule,
     AuthModule,
+    NetworkModule,
     HealthModule,
   ],
 })

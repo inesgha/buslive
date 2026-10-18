@@ -72,19 +72,52 @@ cible, et précise ce qui existe déjà.
 - Les lignes et arrêts proposés par les utilisateurs restent « en attente »
   jusqu'à leur validation par la communauté ou par un modérateur.
 
+## Modèle du réseau (phase 3, en place)
+
+Le modèle est inspiré de GTFS, le format standard des réseaux de transport, en
+plus simple :
+
+```
+Governorate ──< Locality
+     └──< Line ──< LineDirection ──< LineStop >── Stop (point PostGIS)
+           │            │ (tracé PostGIS)
+        Operator        └──< Departure >── ServiceCalendar
+```
+
+- **Horaires** : on stocke seulement les départs du terminus, en minutes depuis
+  minuit. L'heure à un arrêt vaut l'heure de départ plus le temps de trajet
+  (`LineStop.minutesFromStart`). C'est beaucoup moins de données à saisir et à
+  vérifier, et le temps réel corrigera les écarts.
+- **Calendriers** : chacun définit des jours de la semaine, une période de
+  validité facultative et une priorité. Un calendrier spécial, par exemple le
+  Ramadan (priorité 10), remplace les horaires normaux pour les lignes qui en
+  ont.
+- **Positions** : latitude et longitude dans des colonnes normales, et un point
+  PostGIS `stops.location` calculé par un trigger, avec un index spatial GIST.
+- **Statuts** : les lignes et les arrêts ont un statut (`PENDING`, `ACTIVE`,
+  `REJECTED` ou `ARCHIVED`) et un champ `proposedById`, déjà prêts pour les
+  propositions des utilisateurs. L'API publique ne montre que les éléments
+  `ACTIVE`.
+- **Langues** : tous les noms existent en français et en arabe (`nameFr`,
+  `nameAr`).
+
 ## Couverture géographique
 
-- La table `Governorate` (phase 3) aura un champ `isActive`. Les 24
-  gouvernorats existent en base, et seuls ceux qui sont activés apparaissent dans
-  l'app.
+- Les 24 gouvernorats existent en base, avec leurs codes ISO 3166-2 (`TN-53`
+  pour Mahdia). Seuls ceux qui ont `isActive = true` apparaissent dans l'app,
+  avec leurs lignes et leurs arrêts.
 - Lancement : gouvernorat de Mahdia (Mahdia, Ksour Essef). Ouvrir une nouvelle
   région revient à importer ses lignes et arrêts, puis à l'activer. Aucun code à
   modifier.
 
 ## Hors ligne (phases 4–5)
 
-Les horaires théoriques des lignes favorites sont mis en cache sur le téléphone.
-Sans réseau, l'app affiche les horaires et masque les données en direct.
+- `GET /lines/:id` renvoie tout ce qu'il faut pour calculer les horaires d'une
+  ligne : départs, calendriers et temps de trajet entre arrêts.
+- L'app met ce détail en cache pour les lignes favorites, et calcule les
+  horaires avec les mêmes fonctions que l'API (`@buslive/shared/schedule.ts`).
+- Sans réseau, l'app affiche les horaires théoriques et masque les données en
+  direct.
 
 ## Paiements (plus tard, rien n'est codé)
 
