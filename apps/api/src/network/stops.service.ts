@@ -9,6 +9,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { LiveService } from '../live/live.service';
+import { ReportsService } from '../reports/reports.service';
 import { VISIBLE_STOP } from './network.filters';
 import { compareLineCodes, toDirectionSummary, toServiceCalendar } from './network.mapper';
 
@@ -31,6 +32,7 @@ export class StopsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly live: LiveService,
+    private readonly reports: ReportsService,
   ) {}
 
   /**
@@ -101,7 +103,12 @@ export class StopsService {
    * Le calcul est fait par upcomingPassages (@buslive/shared), le même que
    * celui de l'app hors ligne.
    */
-  async getDepartures(stopId: string, at: Date, limit: number): Promise<StopDepartures> {
+  async getDepartures(
+    stopId: string,
+    at: Date,
+    limit: number,
+    viewerId?: string,
+  ): Promise<StopDepartures> {
     const stop = await this.prisma.stop.findFirst({
       where: { id: stopId, ...VISIBLE_STOP },
       select: {
@@ -157,10 +164,18 @@ export class StopsService {
       })),
     );
 
+    // Signalements de l'arrêt (et « plein » / « panne » des sens qui le desservent).
+    const reports = await this.reports.listForStop(
+      stop.id,
+      stop.lineStops.map(({ direction }) => direction.id),
+      viewerId,
+    );
+
     return {
       stopId: stop.id,
       generatedAt: at.toISOString(),
       liveArrivals,
+      reports,
       passages: passages.map(({ key: direction, serviceDate, passingMinutes }) => ({
         line: direction.line,
         direction: toDirectionSummary(direction),

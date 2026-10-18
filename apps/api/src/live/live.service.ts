@@ -13,6 +13,8 @@ import {
   progressMinutes,
   projectOnRoute,
   type StartLiveSessionInput,
+  TRUST_RULES,
+  voteWeight,
 } from '@buslive/shared';
 import {
   Injectable,
@@ -26,6 +28,7 @@ import type { LiveSession } from '../generated/prisma/client';
 import { VISIBLE_LINE } from '../network/network.filters';
 import { PrismaService } from '../prisma/prisma.service';
 import { LiveBroadcaster } from './live.broadcaster';
+import { LiveEvents } from './live.events';
 import { type ActiveSharer, LiveRegistry } from './live.registry';
 import { type RouteData, RouteCacheService } from './route-cache.service';
 
@@ -59,6 +62,7 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
     private readonly routes: RouteCacheService,
     private readonly registry: LiveRegistry,
     private readonly broadcaster: LiveBroadcaster,
+    private readonly events: LiveEvents,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -100,12 +104,18 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
     const session = await this.prisma.liveSession.create({
       data: { userId, lineId: input.lineId, directionId: input.directionId },
     });
+    // Un passager fiable pèse plus dans la position du bus (score de confiance).
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { trustScore: true },
+    });
     this.registry.add({
       sessionId: session.id,
       userId,
       lineId: session.lineId,
       directionId: session.directionId,
       startedAt: session.startedAt.getTime(),
+      weight: voteWeight(user?.trustScore ?? 0),
       last: null,
     });
     return toDto(session);
@@ -145,6 +155,7 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
       const verdict = this.evaluate(sharer, sample, route, now.getTime());
       onRoute = verdict.onRoute;
       if (verdict.accept) {
+        this.emitPassedStops(sharer, route, verdict.state);
         sharer.last = verdict.state;
         accepted++;
       }
@@ -262,7 +273,46 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
       data: { status: 'ENDED', endReason: reason, endedAt: new Date() },
     });
     this.broadcaster.schedule(sharer?.lineId ?? session.lineId);
+
+    // Partage mené à bien (terminus ou arrêt volontaire, assez long) : récompensé.
+    const minutes =
+      ((session.endedAt ?? new Date()).getTime() - session.startedAt.getTime()) / 60_000;
+    if (
+      (reason === 'TERMINUS' || reason === 'USER') &&
+      session.acceptedPositions >= TRUST_RULES.sharingMinAcceptedPositions &&
+      minutes >= TRUST_RULES.sharingMinMinutes
+    ) {
+      this.events.emit('sharingCompleted', { userId: session.userId, sessionId });
+    }
     return session;
+  }
+
+  /**
+   * Signale chaque arrêt que le bus vient de dépasser (avancement passé d'avant
+   * à après l'arrêt). Sert aux statistiques et aux preuves automatiques des
+   * signalements. Rien n'est émis pour la toute première position (on ne sait
+   * pas d'où vient le bus).
+   */
+  private emitPassedStops(
+    sharer: ActiveSharer,
+    route: RouteData,
+    next: NonNullable<ActiveSharer['last']>,
+  ): void {
+    const previous = sharer.last;
+    if (!previous) return;
+    for (const stop of route.stops) {
+      if (
+        previous.progressMinutes < stop.minutesFromStart &&
+        next.progressMinutes >= stop.minutesFromStart
+      ) {
+        this.events.emit('stopPassed', {
+          lineId: sharer.lineId,
+          directionId: sharer.directionId,
+          stopId: stop.stopId,
+          observedAt: new Date(next.recordedAt),
+        });
+      }
+    }
   }
 
   private async findOwnSession(userId: string, sessionId: string): Promise<LiveSession> {

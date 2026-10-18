@@ -38,7 +38,31 @@
   },
   "report": {
     "title": "Signaler",
-    "placeholder": "Bientôt, tu pourras signaler un bus pas venu, plein, en retard ou en panne."
+    "signInRequired": "Connecte-toi pour signaler un problème.",
+    "chooseType": "Que se passe-t-il ?",
+    "types": {
+      "NOT_CAME": "Pas venu",
+      "PASSED": "Bus passé",
+      "FULL": "Bus plein",
+      "DELAYED": "En retard",
+      "BREAKDOWN": "En panne",
+      "STOP_MOVED": "Arrêt déplacé"
+    },
+    "chooseLine": "Quelle ligne ?",
+    "chooseDirection": "Quel sens ?",
+    "chooseStop": "Quel arrêt ?",
+    "choosePassage": "Quel bus ?",
+    "unknownPassage": "Je ne sais pas",
+    "chooseDelay": "Retard estimé",
+    "delayOption": "{{count}} min",
+    "stopMovedHint": "Place-toi là où se trouve maintenant l’arrêt : ta position sera proposée aux modérateurs.",
+    "locationRequired": "Ta position est nécessaire pour signaler un arrêt déplacé.",
+    "submit": "Envoyer le signalement",
+    "success": "Merci ! Tu gagneras des points quand d’autres passagers confirmeront.",
+    "merged": "Déjà signalé : ta confirmation a été ajoutée. Merci !",
+    "another": "Nouveau signalement",
+    "tooMany": "Trop de signalements pour le moment. Réessaie plus tard.",
+    "error": "Impossible d’envoyer le signalement."
   },
   "alerts": {
     "title": "Alertes",
@@ -145,5 +169,47 @@
   "live": {
     "label": "En direct",
     "eta": "En direct · {{eta}}"
+  },
+  "reports": {
+    "title": "Signalements",
+    "none": "Aucun signalement en cours.",
+    "busAt": "Bus de {{time}}",
+    "delay": "Retard : {{count}} min",
+    "confirmations": "Confirmations : {{count}}",
+    "confirmed": "Confirmé",
+    "mine": "Ton signalement",
+    "confirm": "Je confirme",
+    "deny": "Ce n’est pas vrai",
+    "thanks": "Merci pour ton avis",
+    "signInToVote": "Connecte-toi pour donner ton avis.",
+    "voteError": "Impossible d’enregistrer ton avis."
+  },
+  "trust": {
+    "title": "Confiance",
+    "score": "Score : {{score}}",
+    "levels": {
+      "NEW": "Nouveau",
+      "TRUSTED": "Fiable",
+      "EXPERT": "Expert"
+    },
+    "weight": "Ton avis compte ×{{weight}}",
+    "history": "Derniers points",
+    "empty": "Signale ou confirme des problèmes pour gagner des points.",
+    "reasons": {
+      "REPORT_CONFIRMED": "Signalement confirmé",
+      "REPORT_REJECTED": "Signalement démenti",
+      "VOTE_CORRECT": "Avis juste",
+      "VOTE_WRONG": "Avis contredit",
+      "SHARING_COMPLETED": "Partage de position d’un bus"
+    }
+  },
+  "stats": {
+    "title": "Statistiques (30 jours)",
+    "onTime": "À l’heure",
+    "averageDelay": "Retard moyen",
+    "notCame": "« Pas venu » confirmés",
+    "observed": "Passages observés : {{count}}",
+    "notEnough": "Pas encore assez de données. Partage la position du bus pour aider !",
+    "minutes": "{{value}} min"
   }
 }

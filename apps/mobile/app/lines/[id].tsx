@@ -17,6 +17,8 @@ import { AppText } from '@/components/AppText';
 import { BusMarker } from '@/components/BusMarker';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { LineReportsSection } from '@/components/LineReportsSection';
+import { StatsCard } from '@/components/StatsCard';
 import { EmptyState } from '@/components/EmptyState';
 import { LineBadge } from '@/components/LineBadge';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -183,6 +185,8 @@ function LineContent({ line }: { line: LineDetail }) {
         onPress={() => router.push({ pathname: '/share', params: { lineId: line.id } })}
       />
 
+      <LineReportsSection lineId={line.id} />
+
       <Card style={styles.section}>
         <AppText variant="heading">{t('lineDetail.stops')}</AppText>
         {direction.stops.map((lineStop, index) => {
@@ -229,6 +233,8 @@ function LineContent({ line }: { line: LineDetail }) {
           </View>
         )}
       </Card>
+
+      <StatsCard lineId={line.id} />
     </ScrollView>
   );
 }

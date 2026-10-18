@@ -80,15 +80,41 @@ cible, et précise ce qui existe déjà.
 7. **À faire plus tard** : alertes « bus qui approche » sur les favoris
    (phase 8) et passages observés pour les statistiques (phase 7).
 
-## Confiance et modération (phases 7 et 10)
+## Signalements et confiance (phase 7, en place ; modération en phase 10)
 
-- Chaque signalement (`NOT_CAME`, `PASSED`, `FULL`, `DELAYED`, `BREAKDOWN`,
-  `STOP_MOVED`) peut être confirmé ou contredit par d'autres passagers.
-- Un signalement confirmé rapporte des points à son auteur. Un signalement
-  contredit en fait perdre. Le score pèse sur la visibilité des futurs
-  signalements.
-- Les lignes et arrêts proposés par les utilisateurs restent « en attente »
-  jusqu'à leur validation par la communauté ou par un modérateur.
+```
+ signalement (poids de l'auteur) ──┐
+ votes des passagers (leur poids) ─┼─▶ poids « pour » ≥ 3        → CONFIRMÉ (+10 auteur)
+ preuve automatique (poids 3) ─────┘   « contre » ≥ « pour » + 2 → DÉMENTI  (−15 auteur)
+   (bus en direct passé à l'arrêt)     sinon, à l'échéance       → EXPIRÉ   (0)
+```
+
+- **Types** : pas venu, bus passé, plein, retard, panne, arrêt déplacé. Il n'y a
+  pas de texte libre.
+- **Poids d'un avis** : 1 + score/50, entre 0,25 et 3. Un expert peut confirmer
+  seul ; un nouvel utilisateur non.
+- **Points** : +10 pour un signalement confirmé, −15 pour un démenti, +2 pour
+  un vote juste, −3 pour un vote contredit, +2 pour un partage mené à bien
+  (3 fois par jour au plus). L'historique est dans `trust_events`.
+- **Contre les abus** :
+  - 10 signalements par heure au plus ;
+  - les doublons sont fusionnés en confirmations ;
+  - les signalements d'un auteur au score < −50 restent cachés tant qu'ils ne
+    sont pas confirmés ;
+  - les limites de débit comptent par utilisateur connecté (à cause du CGNAT
+    des opérateurs mobiles).
+- **Preuves automatiques** : chaque passage d'un bus en direct à un arrêt est
+  enregistré, de façon anonyme (`stop_passage_observations`), avec l'horaire
+  prévu le plus proche et le retard. Il dément les « pas venu » et confirme les
+  « bus passé » du même arrêt.
+- **Statistiques par ligne** (30 jours) : ponctualité (± 3 min), retard moyen,
+  « pas venu » confirmés. Aucun pourcentage n'est affiché sous 10 passages
+  observés.
+- **Diffusion** : les signalements passent par Socket.io (`reports`), dans la
+  room de la ligne.
+- **Modération (phase 10)** : les « arrêts déplacés » confirmés, ainsi que les
+  lignes et arrêts proposés par les utilisateurs, seront validés par un
+  modérateur.
 
 ## Modèle du réseau (phase 3, en place)
 

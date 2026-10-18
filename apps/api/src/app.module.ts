@@ -8,6 +8,7 @@ import { HealthModule } from './health/health.module';
 import { LiveModule } from './live/live.module';
 import { NetworkModule } from './network/network.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -19,11 +20,14 @@ import { PrismaModule } from './prisma/prisma.module';
       validate: validateEnv,
     }),
     PrismaModule,
-    // Avant AuthModule : une requête trop fréquente est rejetée avant tout autre travail.
-    RateLimitModule,
+    // L'ordre compte : les guards globaux s'exécutent dans l'ordre des modules.
+    // AuthModule d'abord, pour que la limitation compte par utilisateur connecté
+    // (voir RateLimitGuard). Vérifier un JWT ne coûte presque rien.
     AuthModule,
+    RateLimitModule,
     NetworkModule,
     LiveModule,
+    ReportsModule,
     HealthModule,
   ],
 })

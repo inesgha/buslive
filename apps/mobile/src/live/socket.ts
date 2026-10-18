@@ -1,4 +1,10 @@
-import { LIVE_EVENTS, type LineVehicles, LineVehiclesSchema } from '@buslive/shared';
+import {
+  LIVE_EVENTS,
+  type LineReportEvent,
+  LineReportEventSchema,
+  type LineVehicles,
+  LineVehiclesSchema,
+} from '@buslive/shared';
 import { io, type Socket } from 'socket.io-client';
 
 import { apiBaseUrl } from '@/api/http';
@@ -14,6 +20,7 @@ type Listener = (payload: LineVehicles) => void;
 let socket: Socket | null = null;
 const watchCounts = new Map<string, number>();
 const listeners = new Set<Listener>();
+const reportListeners = new Set<(event: LineReportEvent) => void>();
 
 /** « http://10.35.111.93:3000/api/v1 » → « http://10.35.111.93:3000 ». */
 export function socketOrigin(apiUrl: string): string {
@@ -38,6 +45,12 @@ function getSocket(): Socket {
     if (!parsed.success) return;
     for (const listener of listeners) listener(parsed.data);
   });
+  // Nouveau signalement ou changement de statut sur une ligne suivie (phase 7).
+  socket.on(LIVE_EVENTS.reports, (payload: unknown) => {
+    const parsed = LineReportEventSchema.safeParse(payload);
+    if (!parsed.success) return;
+    for (const listener of reportListeners) listener(parsed.data);
+  });
   return socket;
 }
 
@@ -61,4 +74,9 @@ export function unwatchLine(lineId: string): void {
 export function onVehicles(listener: Listener): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+export function onReports(listener: (event: LineReportEvent) => void): () => void {
+  reportListeners.add(listener);
+  return () => reportListeners.delete(listener);
 }

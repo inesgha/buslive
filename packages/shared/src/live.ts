@@ -110,6 +110,8 @@ export const LIVE_EVENTS = {
   watchLine: 'watch:line',
   unwatchLine: 'unwatch:line',
   vehicles: 'vehicles',
+  /** Nouveau signalement ou changement de statut sur la ligne (phase 7). */
+  reports: 'reports',
 } as const;
 
 // --- Règles de validation (fonctions pures) -----------------------------------
@@ -139,6 +141,11 @@ export interface SharerState {
   progressMinutes: number;
   /** Instant de la dernière position acceptée (ms). */
   updatedAt: number;
+  /**
+   * Poids du passager dans la position du bus (selon son score de confiance,
+   * voir voteWeight). 1 par défaut.
+   */
+  weight?: number;
 }
 
 export interface VehicleGroup {
@@ -188,7 +195,10 @@ export function groupIntoVehicles(sharers: readonly SharerState[]): VehicleGroup
 }
 
 function toVehicle(directionId: string, group: SharerState[]): VehicleGroup {
-  const average = (values: number[]) => values.reduce((sum, v) => sum + v, 0) / values.length;
+  // Moyenne PONDÉRÉE par la confiance : un passager fiable pèse plus qu'un nouveau.
+  const totalWeight = group.reduce((sum, s) => sum + (s.weight ?? 1), 0);
+  const average = (pick: (s: SharerState) => number) =>
+    group.reduce((sum, s) => sum + pick(s) * (s.weight ?? 1), 0) / totalWeight;
   // Identifiant : le plus petit identifiant de session du groupe (stable et déterministe).
   const sessionIds = group.map((s) => s.sessionId).sort();
   const id = `vehicle-${sessionIds[0]}`;
@@ -196,10 +206,10 @@ function toVehicle(directionId: string, group: SharerState[]): VehicleGroup {
     id,
     directionId,
     position: {
-      latitude: average(group.map((s) => s.position.latitude)),
-      longitude: average(group.map((s) => s.position.longitude)),
+      latitude: average((s) => s.position.latitude),
+      longitude: average((s) => s.position.longitude),
     },
-    progressMinutes: average(group.map((s) => s.progressMinutes)),
+    progressMinutes: average((s) => s.progressMinutes),
     sharers: group.length,
     updatedAt: Math.max(...group.map((s) => s.updatedAt)),
     sessionIds,

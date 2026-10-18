@@ -3,10 +3,23 @@ import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 
 export type UserLocation =
-  { status: 'pending' } | { status: 'denied' } | { status: 'granted'; position: GeoPoint | null };
+  | { status: 'pending' }
+  | { status: 'denied' }
+  | {
+      status: 'granted';
+      position: GeoPoint | null;
+      /** Précision horizontale annoncée par le GPS (m), si connue. */
+      accuracy: number | null;
+    };
 
-function toPoint(location: Location.LocationObject): GeoPoint {
-  return { latitude: location.coords.latitude, longitude: location.coords.longitude };
+function toGranted(location: Location.LocationObject | null): UserLocation {
+  return {
+    status: 'granted',
+    position: location
+      ? { latitude: location.coords.latitude, longitude: location.coords.longitude }
+      : null,
+    accuracy: location?.coords.accuracy ?? null,
+  };
 }
 
 /**
@@ -29,11 +42,11 @@ export function useUserLocation(): UserLocation {
 
       // Dernière position connue (immédiate), puis position actuelle (plus précise).
       const last = await Location.getLastKnownPositionAsync();
-      update({ status: 'granted', position: last ? toPoint(last) : null });
+      update(toGranted(last));
       const current = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      update({ status: 'granted', position: toPoint(current) });
+      update(toGranted(current));
     })().catch(() => update({ status: 'denied' }));
 
     return () => {

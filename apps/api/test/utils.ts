@@ -37,6 +37,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
   // à chaque nouvelle table.
   await prisma.$executeRaw`
     TRUNCATE TABLE
+      stop_passage_observations, trust_events, report_votes, reports,
       live_sessions,
       departures, line_stops, line_directions, lines, service_calendars,
       stops, localities, operators, governorates,

@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { fetchStopDepartures, queryKeys } from '@/api/network';
 import { useIsOnline } from '@/hooks/useIsOnline';
+import { useNow } from '@/hooks/useNow';
 import { useServiceClock } from '@/hooks/useServiceClock';
 import { currentLocale } from '@/i18n';
 import { localizedName } from '@/i18n/localized';
@@ -16,9 +17,12 @@ import { spacing } from '@/theme/tokens';
 import { AppText } from './AppText';
 import { LiveArrivalRow } from './LiveArrivalRow';
 import { PassageRow } from './PassageRow';
+import { ReportCard } from './ReportCard';
 
 /** Nombre de passages affichés dans le panneau. */
 const VISIBLE_PASSAGES = 6;
+/** Nombre de signalements affichés dans le panneau. */
+const VISIBLE_REPORTS = 3;
 
 /** Panneau d'un arrêt sélectionné sur la carte : ses prochains passages. */
 export function StopPassagesPanel({ stop, onClose }: { stop: NearbyStop; onClose: () => void }) {
@@ -27,6 +31,7 @@ export function StopPassagesPanel({ stop, onClose }: { stop: NearbyStop; onClose
   const locale = currentLocale();
   const clock = useServiceClock();
   const online = useIsOnline();
+  const now = useNow();
   const { data, error, isPending } = useQuery({
     queryKey: queryKeys.stopDepartures(stop.id),
     queryFn: () => fetchStopDepartures(stop.id),
@@ -40,8 +45,12 @@ export function StopPassagesPanel({ stop, onClose }: { stop: NearbyStop; onClose
     .slice(0, VISIBLE_PASSAGES);
   // Le direct n'est affiché qu'en ligne et s'il est récent : jamais de « direct » périmé.
   const liveArrivals = online
-    ? (data?.liveArrivals ?? []).filter((arrival) => isFresh(arrival))
+    ? (data?.liveArrivals ?? []).filter((arrival) => isFresh(arrival, now))
     : [];
+  // Signalements encore valables (les données peuvent venir du cache).
+  const reports = (data?.reports ?? [])
+    .filter((report) => Date.parse(report.expiresAt) > now)
+    .slice(0, VISIBLE_REPORTS);
 
   return (
     <View style={styles.container}>
@@ -68,10 +77,13 @@ export function StopPassagesPanel({ stop, onClose }: { stop: NearbyStop; onClose
         <ActivityIndicator color={colors.text} accessibilityLabel={t('common.loading')} />
       ) : error && !data ? (
         <AppText color="notCame">{t('stop.departuresError')}</AppText>
-      ) : upcoming.length === 0 && liveArrivals.length === 0 ? (
+      ) : upcoming.length === 0 && liveArrivals.length === 0 && reports.length === 0 ? (
         <AppText color="textMuted">{t('stop.noDepartures')}</AppText>
       ) : (
         <>
+          {reports.map((report) => (
+            <ReportCard key={report.id} report={report} locale={locale} />
+          ))}
           {liveArrivals.map((arrival) => (
             <LiveArrivalRow key={arrival.vehicleId} arrival={arrival} locale={locale} />
           ))}

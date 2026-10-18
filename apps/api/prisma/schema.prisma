@@ -41,6 +41,8 @@ model User {
   locale       Locale   @default(fr)
   /// Format +216XXXXXXXX. Réservé à une future connexion par SMS.
   phone        String?  @unique
+  /// Score de confiance (voir TRUST_RULES dans @buslive/shared), entre -100 et 1000.
+  trustScore   Int      @default(0) @map("trust_score")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -48,6 +50,9 @@ model User {
   proposedLines Line[]
   proposedStops Stop[]
   liveSessions  LiveSession[]
+  reports       Report[]
+  reportVotes   ReportVote[]
+  trustEvents   TrustEvent[]
 
   @@map("users")
 }
@@ -162,11 +167,13 @@ model Line {
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  governorate  Governorate     @relation(fields: [governorateId], references: [id], onDelete: Restrict)
-  operator     Operator?       @relation(fields: [operatorId], references: [id], onDelete: SetNull)
-  proposedBy   User?           @relation(fields: [proposedById], references: [id], onDelete: SetNull)
+  governorate  Governorate              @relation(fields: [governorateId], references: [id], onDelete: Restrict)
+  operator     Operator?                @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  proposedBy   User?                    @relation(fields: [proposedById], references: [id], onDelete: SetNull)
   directions   LineDirection[]
   liveSessions LiveSession[]
+  reports      Report[]
+  observations StopPassageObservation[]
 
   @@unique([governorateId, code])
   @@index([status])
@@ -184,10 +191,12 @@ model LineDirection {
   /// Tracé du parcours (PostGIS). Écrit et lu en SQL brut : Prisma ne gère pas ce type.
   shape      Unsupported("geography(LineString, 4326)")?
 
-  line         Line          @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  line         Line                     @relation(fields: [lineId], references: [id], onDelete: Cascade)
   stops        LineStop[]
   departures   Departure[]
   liveSessions LiveSession[]
+  reports      Report[]
+  observations StopPassageObservation[]
 
   @@unique([lineId, direction])
   @@map("line_directions")
@@ -212,10 +221,12 @@ model Stop {
   createdAt     DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  governorate Governorate @relation(fields: [governorateId], references: [id], onDelete: Restrict)
-  locality    Locality?   @relation(fields: [localityId], references: [id], onDelete: SetNull)
-  proposedBy  User?       @relation(fields: [proposedById], references: [id], onDelete: SetNull)
-  lineStops   LineStop[]
+  governorate  Governorate              @relation(fields: [governorateId], references: [id], onDelete: Restrict)
+  locality     Locality?                @relation(fields: [localityId], references: [id], onDelete: SetNull)
+  proposedBy   User?                    @relation(fields: [proposedById], references: [id], onDelete: SetNull)
+  lineStops    LineStop[]
+  reports      Report[]
+  observations StopPassageObservation[]
 
   /// Index spatial : rend rapides les recherches « arrêts à moins de X mètres ».
   @@index([location], type: Gist)
@@ -322,4 +333,148 @@ model LiveSession {
   @@index([userId, status])
   @@index([lineId, status])
   @@map("live_sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Signalements, votes, confiance et passages observés (phase 7)
+// ---------------------------------------------------------------------------
+
+/// Doit rester identique à REPORT_TYPES (@buslive/shared).
+enum ReportType {
+  NOT_CAME
+  PASSED
+  FULL
+  DELAYED
+  BREAKDOWN
+  STOP_MOVED
+}
+
+/// Doit rester identique à REPORT_STATUSES (@buslive/shared).
+enum ReportStatus {
+  ACTIVE
+  CONFIRMED
+  REJECTED
+  EXPIRED
+}
+
+enum VoteValue {
+  CONFIRM
+  DENY
+}
+
+/// USER : vote d'un passager ; LIVE : preuve automatique (bus en direct observé).
+enum VoteSource {
+  USER
+  LIVE
+}
+
+/// Doit rester identique à TRUST_EVENT_REASONS (@buslive/shared).
+enum TrustEventReason {
+  REPORT_CONFIRMED
+  REPORT_REJECTED
+  VOTE_CORRECT
+  VOTE_WRONG
+  SHARING_COMPLETED
+}
+
+/// Signalement d'un passager. Pas de texte libre (rien à modérer).
+model Report {
+  id                     String       @id @default(uuid()) @db.Uuid
+  userId                 String       @map("user_id") @db.Uuid
+  type                   ReportType
+  status                 ReportStatus @default(ACTIVE)
+  lineId                 String       @map("line_id") @db.Uuid
+  directionId            String?      @map("direction_id") @db.Uuid
+  stopId                 String?      @map("stop_id") @db.Uuid
+  /// Horaire concerné (« le bus de 07:30 ») : journée de service + minutes.
+  serviceDate            DateTime?    @map("service_date") @db.Date
+  scheduledMinutes       Int?         @map("scheduled_minutes")
+  delayMinutes           Int?         @map("delay_minutes")
+  /// Distance de l'auteur à l'arrêt au moment du signalement (m, arrondie).
+  /// Sa position elle-même n'est pas conservée.
+  reporterDistanceMeters Int?         @map("reporter_distance_meters")
+  /// « Arrêt déplacé » : position proposée pour l'arrêt (à valider par un modérateur).
+  proposedLatitude       Float?       @map("proposed_latitude")
+  proposedLongitude      Float?       @map("proposed_longitude")
+  /// Poids cumulés « pour » (auteur compris) et « contre ».
+  confirmWeight          Float        @map("confirm_weight")
+  denyWeight             Float        @default(0) @map("deny_weight")
+  /// Votes d'autres passagers (l'auteur n'est pas compté).
+  confirmCount           Int          @default(0) @map("confirm_count")
+  denyCount              Int          @default(0) @map("deny_count")
+  /// Auteur au score très bas : caché tant que le signalement n'est pas confirmé.
+  hidden                 Boolean      @default(false)
+  expiresAt              DateTime     @map("expires_at") @db.Timestamptz(3)
+  resolvedAt             DateTime?    @map("resolved_at") @db.Timestamptz(3)
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  line      Line           @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  direction LineDirection? @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  stop      Stop?          @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  votes     ReportVote[]
+  events    TrustEvent[]
+
+  @@index([lineId, status])
+  @@index([stopId, status])
+  @@index([status, expiresAt])
+  @@index([userId, createdAt])
+  @@map("reports")
+}
+
+model ReportVote {
+  id        String     @id @default(uuid()) @db.Uuid
+  reportId  String     @map("report_id") @db.Uuid
+  /// null pour une preuve automatique (source LIVE).
+  userId    String?    @map("user_id") @db.Uuid
+  source    VoteSource @default(USER)
+  value     VoteValue
+  /// Poids du votant au moment du vote.
+  weight    Float
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Un seul vote par utilisateur et par signalement (plusieurs null autorisés).
+  @@unique([reportId, userId])
+  @@map("report_votes")
+}
+
+/// Historique des points de confiance : l'utilisateur voit pourquoi son score bouge.
+model TrustEvent {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  delta     Int
+  reason    TrustEventReason
+  reportId  String?          @map("report_id") @db.Uuid
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("trust_events")
+}
+
+/// Passage RÉEL d'un bus à un arrêt, observé grâce au partage en direct.
+/// Anonyme : aucun lien avec les passagers ni avec les partages.
+model StopPassageObservation {
+  id               String    @id @default(uuid()) @db.Uuid
+  lineId           String    @map("line_id") @db.Uuid
+  directionId      String    @map("direction_id") @db.Uuid
+  stopId           String    @map("stop_id") @db.Uuid
+  observedAt       DateTime  @map("observed_at") @db.Timestamptz(3)
+  /// Horaire prévu le plus proche (s'il y en a un à ± 30 min) et retard calculé.
+  serviceDate      DateTime? @map("service_date") @db.Date
+  scheduledMinutes Int?      @map("scheduled_minutes")
+  delayMinutes     Int?      @map("delay_minutes")
+
+  line      Line          @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  direction LineDirection @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  stop      Stop          @relation(fields: [stopId], references: [id], onDelete: Cascade)
+
+  @@index([lineId, observedAt])
+  @@index([directionId, stopId, observedAt])
+  @@map("stop_passage_observations")
 }

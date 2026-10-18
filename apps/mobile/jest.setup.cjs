@@ -27,3 +27,11 @@ jest.mock('expo-secure-store', () => {
 jest.mock('@react-native-community/netinfo', () =>
   require('@react-native-community/netinfo/jest/netinfo-mock.js'),
 );
+
+// Icônes : remplacées par un composant vide (elles chargent un fichier de police,
+// indisponible dans les tests). Les tests vérifient les textes, pas les icônes.
+jest.mock('@expo/vector-icons/Ionicons', () => {
+  const Icon = () => null;
+  Icon.glyphMap = {};
+  return { __esModule: true, default: Icon };
+});

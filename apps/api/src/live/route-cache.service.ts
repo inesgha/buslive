@@ -12,6 +12,8 @@ export interface RouteData {
   shape: GeoPoint[];
   /** Arrêts positionnés sur le tracé, avec leur temps de trajet prévu. */
   milestones: StopMilestone[];
+  /** Arrêts dans l'ordre du parcours (pour repérer les passages aux arrêts). */
+  stops: { stopId: string; minutesFromStart: number }[];
   terminus: GeoPoint & { minutesFromStart: number };
 }
 
@@ -70,6 +72,10 @@ export class RouteCacheService {
       directionId,
       shape,
       milestones: stopMilestones(shape, stops),
+      stops: direction.stops.map((lineStop) => ({
+        stopId: lineStop.stopId,
+        minutesFromStart: lineStop.minutesFromStart,
+      })),
       terminus: stops.at(-1)!,
     };
   }

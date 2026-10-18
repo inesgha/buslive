@@ -11,12 +11,16 @@ class LoginController {
 }
 
 /** Faux contexte : requête venant de « ip », réponse qui mémorise ses en-têtes. */
-function contextFor(ip: string, headers: Record<string, string> = {}): ExecutionContext {
+function contextFor(
+  ip: string,
+  headers: Record<string, string> = {},
+  userId?: string,
+): ExecutionContext {
   return {
     getHandler: () => LoginController.prototype.login,
     getClass: () => LoginController,
     switchToHttp: () => ({
-      getRequest: () => ({ ip }),
+      getRequest: () => ({ ip, ...(userId && { user: { id: userId } }) }),
       getResponse: () => ({ setHeader: (name: string, value: string) => (headers[name] = value) }),
     }),
   } as unknown as ExecutionContext;
@@ -67,6 +71,14 @@ describe('RateLimitGuard', () => {
     limitRoute({});
     for (let i = 0; i < 3; i++) guard.canActivate(contextFor('1.1.1.1'));
     expect(guard.canActivate(contextFor('2.2.2.2'))).toBe(true);
+  });
+
+  it('compte par utilisateur connecté, même derrière une IP partagée (CGNAT)', () => {
+    limitRoute({});
+    for (let i = 0; i < 3; i++) guard.canActivate(contextFor('100.64.0.1', {}, 'ines'));
+    expect(() => guard.canActivate(contextFor('100.64.0.1', {}, 'ines'))).toThrow(HttpException);
+    // Un autre abonné du même opérateur (même IP) n'est pas bloqué.
+    expect(guard.canActivate(contextFor('100.64.0.1', {}, 'amira'))).toBe(true);
   });
 
   it('rouvre l’accès à la fin de la fenêtre', () => {

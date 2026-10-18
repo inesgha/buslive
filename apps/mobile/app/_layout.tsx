@@ -73,7 +73,7 @@ export default function RootLayout() {
             persister: queryPersister,
             maxAge: OFFLINE_MAX_AGE_MS,
             // À changer si le format des données en cache change (invalide l'ancien cache).
-            buster: 'v2',
+            buster: 'v3',
             dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
           }}
         >

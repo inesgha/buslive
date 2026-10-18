@@ -9,6 +9,7 @@ import { extractBearerToken, JwtAuthGuard } from './jwt-auth.guard';
 /** Construit un faux contexte d'exécution autour d'une requête HTTP. */
 function contextFor(request: Partial<AuthenticatedRequest>): ExecutionContext {
   return {
+    getType: () => 'http',
     getHandler: () => () => undefined,
     getClass: () => class {},
     switchToHttp: () => ({ getRequest: () => request }),
@@ -25,6 +26,25 @@ describe('JwtAuthGuard', () => {
   it('laisse passer une route @Public sans jeton', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
     await expect(guard.canActivate(contextFor({ headers: {} }))).resolves.toBe(true);
+  });
+
+  it('sur une route @Public, reconnaît l’utilisateur si son jeton est valide', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
+    const token = await jwt.signAsync({ sub: 'u1', role: 'USER' });
+    const request: Partial<AuthenticatedRequest> = {
+      headers: { authorization: `Bearer ${token}` },
+    };
+    await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
+    expect(request.user).toEqual({ id: 'u1', role: 'USER' });
+  });
+
+  it('sur une route @Public, ignore un jeton invalide sans refuser l’accès', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
+    const request: Partial<AuthenticatedRequest> = {
+      headers: { authorization: 'Bearer abc.def.ghi' },
+    };
+    await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
+    expect(request.user).toBeUndefined();
   });
 
   it('refuse une route protégée sans jeton (401)', async () => {

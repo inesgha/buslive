@@ -16,6 +16,8 @@ export interface ActiveSharer {
   directionId: string;
   /** Début du partage (ms). */
   startedAt: number;
+  /** Poids du passager dans la position du bus (selon son score de confiance). */
+  weight: number;
   /** Dernière position acceptée (null tant qu'aucune ne l'a été). */
   last: {
     position: GeoPoint;
@@ -67,6 +69,7 @@ export class LiveRegistry {
         distanceAlongMeters: sharer.last.distanceAlongMeters,
         progressMinutes: sharer.last.progressMinutes,
         updatedAt: sharer.last.recordedAt,
+        weight: sharer.weight,
       });
     }
     return groupIntoVehicles(fresh);

@@ -38,7 +38,31 @@
   },
   "report": {
     "title": "إبلاغ",
-    "placeholder": "قريبًا، يمكنك الإبلاغ عن حافلة لم تأتِ أو ممتلئة أو متأخرة أو معطّلة."
+    "signInRequired": "سجّل الدخول للإبلاغ عن مشكلة.",
+    "chooseType": "ماذا يحدث؟",
+    "types": {
+      "NOT_CAME": "لم تأتِ",
+      "PASSED": "مرّت الحافلة",
+      "FULL": "ممتلئة",
+      "DELAYED": "متأخرة",
+      "BREAKDOWN": "معطّلة",
+      "STOP_MOVED": "المحطة نُقلت"
+    },
+    "chooseLine": "أي خط؟",
+    "chooseDirection": "أي اتجاه؟",
+    "chooseStop": "أي محطة؟",
+    "choosePassage": "أي حافلة؟",
+    "unknownPassage": "لا أعرف",
+    "chooseDelay": "التأخير التقديري",
+    "delayOption": "{{count}} د",
+    "stopMovedHint": "قف حيث توجد المحطة الآن: سيُقترح موقعك على المشرفين.",
+    "locationRequired": "موقعك ضروري للإبلاغ عن نقل محطة.",
+    "submit": "إرسال البلاغ",
+    "success": "شكرًا! ستكسب نقاطًا عندما يؤكد ركاب آخرون بلاغك.",
+    "merged": "تم الإبلاغ مسبقًا: أُضيف تأكيدك. شكرًا!",
+    "another": "بلاغ جديد",
+    "tooMany": "بلاغات كثيرة حاليًا. أعد المحاولة لاحقًا.",
+    "error": "تعذّر إرسال البلاغ."
   },
   "alerts": {
     "title": "التنبيهات",
@@ -145,5 +169,47 @@
   "live": {
     "label": "مباشر",
     "eta": "مباشر · {{eta}}"
+  },
+  "reports": {
+    "title": "البلاغات",
+    "none": "لا توجد بلاغات حاليًا.",
+    "busAt": "حافلة الساعة {{time}}",
+    "delay": "التأخير: {{count}} د",
+    "confirmations": "التأكيدات: {{count}}",
+    "confirmed": "مؤكَّد",
+    "mine": "بلاغك",
+    "confirm": "أؤكد",
+    "deny": "غير صحيح",
+    "thanks": "شكرًا على رأيك",
+    "signInToVote": "سجّل الدخول لإبداء رأيك.",
+    "voteError": "تعذّر تسجيل رأيك."
+  },
+  "trust": {
+    "title": "الثقة",
+    "score": "النقاط: {{score}}",
+    "levels": {
+      "NEW": "جديد",
+      "TRUSTED": "موثوق",
+      "EXPERT": "خبير"
+    },
+    "weight": "رأيك يُحتسب ×{{weight}}",
+    "history": "آخر النقاط",
+    "empty": "أبلغ عن المشاكل أو أكّدها لتكسب نقاطًا.",
+    "reasons": {
+      "REPORT_CONFIRMED": "بلاغ مؤكَّد",
+      "REPORT_REJECTED": "بلاغ مرفوض",
+      "VOTE_CORRECT": "رأي صائب",
+      "VOTE_WRONG": "رأي خاطئ",
+      "SHARING_COMPLETED": "مشاركة موقع حافلة"
+    }
+  },
+  "stats": {
+    "title": "إحصائيات (30 يومًا)",
+    "onTime": "في الوقت",
+    "averageDelay": "متوسط التأخير",
+    "notCame": "بلاغات «لم تأتِ» المؤكدة",
+    "observed": "مرورات مرصودة: {{count}}",
+    "notEnough": "لا توجد بيانات كافية بعد. شارك موقع الحافلة للمساعدة!",
+    "minutes": "{{value}} د"
   }
 }

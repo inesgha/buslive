@@ -10,6 +10,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { TrustCard } from '@/components/TrustCard';
 import { changeLocale, currentLocale } from '@/i18n';
 import { requestDirection, restartApp } from '@/i18n/direction';
 import type { ThemePreference } from '@/storage/preferences';
@@ -63,6 +64,8 @@ export default function ProfileScreen() {
           </>
         )}
       </Card>
+
+      {state.status === 'signedIn' ? <TrustCard /> : null}
 
       <Card style={styles.section}>
         <AppText variant="heading">{t('profile.language')}</AppText>

@@ -22,8 +22,14 @@ export interface RateLimitOptions {
 
 /**
  * Guard global : n'agit que sur les routes marquées @RateLimit().
- * Compte les requêtes par route ET par adresse IP ; au-delà de la limite,
- * répond 429 avec l'en-tête standard « Retry-After » (en secondes).
+ * Au-delà de la limite, répond 429 avec l'en-tête standard « Retry-After » (s).
+ *
+ * Qui compte-t-on ?
+ * - utilisateur connecté → PAR UTILISATEUR. Les opérateurs mobiles font souvent
+ *   partager une même adresse IP à de nombreux abonnés (CGNAT) : une limite par
+ *   IP bloquerait des passagers qui n'ont rien fait ;
+ * - sinon (connexion, inscription) → par adresse IP, contre la force brute.
+ * Ce guard s'exécute APRÈS JwtAuthGuard (ordre des modules dans AppModule).
  */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
@@ -44,10 +50,11 @@ export class RateLimitGuard implements CanActivate {
     const windowMs = (override.windowSeconds ?? this.defaults.windowSeconds) * 1000;
 
     const http = context.switchToHttp();
-    const request = http.getRequest<Request>();
+    const request = http.getRequest<Request & { user?: { id: string } }>();
     // Derrière un proxy (phase 11), il faudra activer « trust proxy » pour que
     // request.ip soit l'IP du client et non celle du proxy.
-    const key = `${context.getClass().name}.${context.getHandler().name}:${request.ip ?? 'inconnue'}`;
+    const who = request.user ? `user:${request.user.id}` : `ip:${request.ip ?? 'inconnue'}`;
+    const key = `${context.getClass().name}.${context.getHandler().name}:${who}`;
 
     const { count, resetAt } = this.store.hit(key, windowMs);
     if (count > max) {

@@ -966,3 +966,170 @@ feat(live): partage « Je suis dans le bus » et bus en direct
 - mobile : écran de partage, localisation en arrière-plan (build EAS) ou app ouverte
 - bus en direct sur la carte, le détail d'une ligne et les arrêts (« En direct · 4 min »)
 ```
+
+---
+
+## Phase 7 — Signalements, score de confiance et statistiques (18/10/2026)
+
+### Ce qui a été fait et pourquoi
+
+**Règles (fonctions pures dans `@buslive/shared`, testées)**
+
+- `TRUST_RULES` rassemble les règles chiffrées.
+  - **Poids d'un avis** : 1 + score/50, entre 0,25 et 3 (`voteWeight`).
+  - **Confirmé** quand le total « pour » (auteur compris) atteint 3 ;
+    **démenti** quand le total « contre » dépasse le total « pour » de 2
+    (`resolveReport`).
+  - **Points** : +10 signalement confirmé, −15 démenti, +2 vote juste, −3 vote
+    contredit, +2 partage mené à bien (3 par jour au plus). **Les erreurs
+    coûtent plus qu'elles ne rapportent.**
+- **Niveaux** : Nouveau, Fiable et Expert. **Durée de vie** selon le type
+  (`reportLifetimeMinutes`), comptée à partir de l'horaire concerné quand il
+  est connu.
+- `computeLineStats` : aucun pourcentage sous 10 passages observés.
+
+**API**
+
+- **Base de données** (migration `reports_trust`) :
+  - `reports`, `report_votes` et `trust_events` (l'historique des points) ;
+  - `stop_passage_observations`, les passages réels observés, **anonymes** ;
+  - `users.trust_score`.
+- **`POST /reports`** :
+  - contrôles selon le type : sens, arrêt desservi, horaire à −3 h / +2 h au
+    plus, arrêt déplacé de moins de 1 km ;
+  - **doublon = confirmation** de l'existant ;
+  - 10 signalements par heure au plus ;
+  - signalement caché si l'auteur a un score < −50 ;
+  - **pas de texte libre**, et la position de l'auteur n'est **pas** gardée
+    (seulement sa distance à l'arrêt).
+- **`POST /reports/:id/votes`** :
+  - pas de vote sur son propre signalement (403), un seul vote par
+    utilisateur (409) ;
+  - la décision et le versement des points se font **dans une transaction**,
+    avec une mise à jour conditionnelle : les points ne sont versés qu'une
+    fois ;
+  - la ligne de l'utilisateur est verrouillée (`FOR UPDATE`) pendant le
+    versement des points.
+- **Preuves automatiques** : quand un bus en direct dépasse un arrêt, l'API
+  enregistre un passage observé, rapproché de l'horaire le plus proche (avec
+  le retard). Ce passage **dément les « pas venu »** et **confirme les « bus
+  passé »** de cet arrêt (poids 3), y compris pour un signalement envoyé après
+  le passage.
+- **Événements internes** (`LiveEvents` : `stopPassed`, `sharingCompleted`) :
+  le module des signalements écoute le temps réel, sans dépendance circulaire.
+- **Les positions des passagers sont maintenant pondérées par leur score** dans
+  la position du bus, comme annoncé en phase 6.
+- **Lecture** : `GET /lines/:id/reports`, signalements inclus dans
+  `/stops/:id/departures`, `GET /lines/:id/stats` (30 jours) et
+  `GET /me/trust`.
+- **Diffusion** : Socket.io `reports`, dans la room de la ligne.
+- **Routes publiques avec identification facultative** : un jeton valide est lu
+  sans jamais refuser l'accès, pour afficher « mon signalement » et « mon
+  vote ».
+
+**Mobile**
+
+- **Onglet Signaler** :
+  - 6 tuiles aux couleurs de statut, puis ligne, sens, arrêt, bus concerné et
+    retard ;
+  - choix par défaut **déduits** : le bus partagé, puis l'arrêt le plus
+    proche ;
+  - message différent quand le problème était déjà signalé (« ta confirmation
+    a été ajoutée »).
+- **Carte de signalement** avec « Je confirme » et « Ce n'est pas vrai »,
+  affichée dans le panneau d'un arrêt et dans le détail d'une ligne (mise à
+  jour en direct).
+- **Carte Statistiques** dans le détail d'une ligne, et **carte Confiance**
+  (niveau, score, poids, derniers points) dans le Profil.
+
+### Écarts et problèmes rencontrés
+
+- **Limite de débit par utilisateur connecté au lieu de par IP.** Les tests
+  ont révélé un vrai défaut de conception : les opérateurs mobiles font
+  partager une même adresse IP à de nombreux abonnés (CGNAT). Une limite par IP
+  bloquerait des passagers innocents.
+  - Le guard compte donc par utilisateur quand il est connecté, et par IP
+    seulement sinon (connexion, inscription).
+  - Il s'exécute maintenant **après** l'authentification (nouvel ordre des
+    modules).
+- **`departures.ts` séparé de `network.ts`** dans shared, pour éviter une
+  dépendance circulaire avec les signalements. Les noms exportés restent les
+  mêmes.
+- **Règle du rendu pur** (React) : `Date.now()` n'est plus appelé pendant
+  l'affichage ; le hook `useNow()` le remplace.
+- **Couleur écrite en dur** retirée de l'écran de succès, et **précision GPS
+  inventée** remplacée par la vraie (`useUserLocation`).
+- **Une exécution des tests a bloqué plus de 10 minutes** : un socket resté
+  ouvert après un test en échec empêchait Jest de s'arrêter. Les sockets sont
+  maintenant fermés dans un `finally`, et les tests sont toujours lancés avec
+  une limite de temps.
+- **Une erreur passagère « base injoignable »** (P1001) s'est produite une
+  fois. Le conteneur était sain, et elle ne s'est pas reproduite.
+
+### Fichiers créés ou modifiés
+
+```
+packages/shared/src/trust.ts, trust.test.ts, stats.ts, departures.ts (créés)
+packages/shared/src/reports.ts (schémas), network.ts (passages déplacés), live.ts (poids), index.ts
+apps/api/prisma/schema.prisma, migrations/20261018171634_reports_trust/
+apps/api/src/reports/reports.module.ts, reports.controller.ts, reports.service.ts,
+                    reports.mapper.ts, trust.service.ts, observations.service.ts, stats.service.ts (créés)
+apps/api/src/live/live.events.ts (créé), live.service.ts, live.registry.ts, live.broadcaster.ts,
+                 route-cache.service.ts, live.module.ts
+apps/api/src/auth/guards/jwt-auth.guard.ts (+ test), common/rate-limit/rate-limit.guard.ts (+ test)
+apps/api/src/app.module.ts (ordre des modules), network/stops.service.ts, network.controller.ts,
+             network.module.ts, users/enums-sync.test.ts
+apps/api/test/reports.e2e-test.ts (créé), utils.ts
+apps/mobile/app/(tabs)/report.tsx (réécrit), (tabs)/profile.tsx, lines/[id].tsx, _layout.tsx
+apps/mobile/src/api/reports.ts, src/reports/reportForm.ts (+ test), reportVisuals.ts,
+           useReportUpdates.ts, useVote.ts (créés), src/api/network.ts (clés)
+apps/mobile/src/components/ReportCard.tsx (+ test), LineReportsSection.tsx, StatsCard.tsx,
+                           TrustCard.tsx (créés), StopPassagesPanel.tsx
+apps/mobile/src/hooks/useNow.ts (créé), useUserLocation.ts, src/live/socket.ts
+apps/mobile/src/i18n/locales/fr.json, ar.json, jest.setup.cjs (icônes)
+CLAUDE.md, docs/ARCHITECTURE.md, apps/api/README.md, apps/mobile/README.md, JOURNAL.md
+```
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm --filter @buslive/api prisma:deploy    # nouvelles tables
+pnpm dev:api && pnpm dev:mobile
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e
+```
+
+Résultats obtenus :
+
+- lint, format et typecheck sans erreur ;
+- tests unitaires : 88 dans shared, 46 dans l'API et 81 dans le mobile ;
+  tests e2e : **92**, dont 23 sur les signalements. On y trouve le parcours
+  complet avec les points, le démenti par un expert, les doublons, la
+  visibilité, la limite horaire, l'expiration, la diffusion Socket.io, et la
+  **preuve automatique par un vrai partage de position** qui dément un faux
+  « pas venu » ;
+- `expo-doctor` : 20 vérifications sur 20, et le bundle Android se construit
+  (5,3 Mo) ;
+- écart schéma ↔ base : « empty migration ».
+
+**Pas encore testé sur un vrai téléphone.**
+
+### À configurer soi-même
+
+- Rien de nouveau, à part appliquer la migration (`prisma:deploy`).
+- **À décider plus tard** : les valeurs de `TRUST_RULES` (points, seuils,
+  limites) sont des choix de départ raisonnables. Il faudra les ajuster selon
+  l'usage réel (en phase 10, le tableau de bord aidera à les observer).
+- **Relire les nouveaux textes arabes** (signalements, confiance,
+  statistiques).
+
+### Message de commit proposé
+
+```
+feat(reports): signalements, score de confiance et statistiques par ligne
+
+- signalements (pas venu, passé, plein, retard, panne, arrêt déplacé) avec contrôles et doublons fusionnés
+- votes pondérés par la confiance, décision automatique et points (historique)
+- preuves automatiques : un bus en direct passé dément « pas venu », confirme « bus passé »
+- passages observés anonymes et statistiques (ponctualité, retard moyen) sur 30 jours
+- limitation des requêtes par utilisateur connecté (CGNAT) ; mobile : onglet Signaler, votes, confiance
+```

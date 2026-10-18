@@ -109,6 +109,7 @@ src/
   hooks/                  heure de Tunis, position, état du réseau
   i18n/                   traductions fr/ar, sens d'écriture (RTL)
   live/                   partage de position (arrière-plan / app ouverte), Socket.io, bus en direct
+  reports/                formulaire de signalement (logique pure), votes, mises à jour en direct
   storage/                préférences (langue, thème)
   theme/                  couleurs, police, contrastes, style de carte sombre
   time/                   formatage des distances et des heures (« dans 5 min »)

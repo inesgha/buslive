@@ -30,6 +30,8 @@ import {
 } from '@nestjs/swagger';
 import { z } from 'zod';
 
+import type { AuthenticatedUser } from '../auth/auth.types';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { zodToOpenApi } from '../common/zod-openapi';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
@@ -103,8 +105,15 @@ export class NetworkController {
   getStopDepartures(
     @Param('id', UuidPipe) id: string,
     @Query(new ZodValidationPipe(StopDeparturesQuerySchema)) query: StopDeparturesQuery,
+    // Route publique : l'utilisateur est connu s'il envoie un jeton (pour « mon vote »).
+    @CurrentUser() user?: AuthenticatedUser,
   ): Promise<StopDepartures> {
-    return this.stops.getDepartures(id, query.at ? new Date(query.at) : new Date(), query.limit);
+    return this.stops.getDepartures(
+      id,
+      query.at ? new Date(query.at) : new Date(),
+      query.limit,
+      user?.id,
+    );
   }
 
   @Get('stops/:id')

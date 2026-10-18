@@ -46,4 +46,7 @@ export const queryKeys = {
     // Arrondi à ~100 m : de petits déplacements réutilisent le même résultat.
     ['nearbyStops', center.latitude.toFixed(3), center.longitude.toFixed(3)] as const,
   stopDepartures: (stopId: string) => ['stopDepartures', stopId] as const,
+  lineReports: (lineId: string) => ['lineReports', lineId] as const,
+  lineStats: (lineId: string) => ['lineStats', lineId] as const,
+  myTrust: ['myTrust'] as const,
 };

@@ -1,4 +1,4 @@
-import { LIVE_EVENTS } from '@buslive/shared';
+import { LIVE_EVENTS, type LineReportEvent } from '@buslive/shared';
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Namespace } from 'socket.io';
@@ -46,6 +46,11 @@ export class LiveBroadcaster implements OnModuleDestroy {
     // Ne retient pas le processus à l'arrêt.
     timer.unref();
     this.pending.set(lineId, timer);
+  }
+
+  /** Diffuse immédiatement un signalement (nouveau ou mis à jour) aux spectateurs de la ligne. */
+  emitReport(event: LineReportEvent): void {
+    this.server?.to(lineRoom(event.lineId)).emit(LIVE_EVENTS.reports, event);
   }
 
   onModuleDestroy(): void {

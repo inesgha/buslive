@@ -82,6 +82,24 @@ Un horaire = un départ du terminus (minutes depuis minuit) + un calendrier
 - Les arrivées en direct à un arrêt sont dans `liveArrivals` de
   `GET /stops/:id/departures`.
 
+## Signalements, confiance et statistiques
+
+| Route                            | Accès    | Rôle                                                   |
+| -------------------------------- | -------- | ------------------------------------------------------ |
+| `POST /api/v1/reports`           | connecté | Signaler (contrôles selon le type, doublons fusionnés) |
+| `POST /api/v1/reports/:id/votes` | connecté | Confirmer / contredire (`CONFIRM` / `DENY`)            |
+| `GET /api/v1/lines/:id/reports`  | public*  | Signalements en cours d'une ligne                      |
+| `GET /api/v1/lines/:id/stats`    | public   | Statistiques sur 30 jours                              |
+| `GET /api/v1/me/trust`           | connecté | Score, niveau, historique des points                   |
+| Socket.io `/live` : `reports`    | public   | Nouveau signalement / changement de statut             |
+
+\* Avec un jeton, la réponse indique « mon signalement » et « mon vote ».
+
+- Règles chiffrées : `TRUST_RULES` dans `@buslive/shared` (poids, seuils, points).
+- Les points ne sont versés que par `TrustService.award` (transaction + historique).
+- Un passage de bus en direct à un arrêt est enregistré (anonyme) et sert de
+  preuve automatique : il dément les « pas venu », confirme les « bus passé ».
+
 ## Authentification
 
 | Route                        | Accès          | Rôle                                |
@@ -135,6 +153,7 @@ src/
   prisma/            PrismaService (connexion via @prisma/adapter-pg)
   auth/              inscription, connexion, jetons, guards et décorateurs
   live/              partage de position, registre des bus en direct, Socket.io
+  reports/           signalements, votes, confiance, passages observés, statistiques
   network/           gouvernorats, lignes, arrêts, horaires (lecture)
   users/             accès aux utilisateurs
   health/            routes de santé (Terminus) + indicateur PostGIS

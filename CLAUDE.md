@@ -110,7 +110,14 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   cache centralisées dans `queryKeys` (`src/api/network.ts`). Bandeau
   `OfflineBanner` (NetInfo). Changer `buster` si le format en cache change.
 - Tests : `jest-expo` + Testing Library 14 (**`render` est asynchrone : `await render(…)`**).
-  Simulations d'AsyncStorage et d'expo-secure-store dans `jest.setup.cjs`.
+  Simulations d'AsyncStorage, expo-secure-store, NetInfo et des icônes Ionicons
+  dans `jest.setup.cjs`.
+- Rendu pur (règle `react-hooks/purity`) : jamais `Date.now()` pendant l'affichage,
+  utiliser `useNow()` (ou `useServiceClock()` pour l'heure de Tunis).
+- Signalements : formulaire en fonctions pures (`src/reports/reportForm.ts`),
+  valeurs par défaut DÉDUITES (bus partagé, arrêt le plus proche) plutôt que
+  recopiées dans l'état ; mises à jour en direct via `useReportUpdates` (Socket.io
+  « reports »). Les signalements ne sont pas gardés dans le cache hors ligne.
 - Vérifier que l'app s'assemble sans téléphone :
   `npx expo export --platform android --output-dir <dossier temporaire>`.
 - Expo réécrit `tsconfig.json#include` au démarrage : garder `["**/*.ts", "**/*.tsx"]`.
@@ -182,7 +189,29 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
     les sessions restées ACTIVE sont closes. Plusieurs instances → Redis (phase 11) ;
   - la passerelle Socket.io est `@Public()` (sinon le guard JWT global s'appliquerait) ;
   - `ConfiguredIoAdapter` applique CORS_ORIGINS à Socket.io ;
-  - aucune information sur les passagers n'est diffusée (testé).
+  - aucune information sur les passagers n'est diffusée (testé) ;
+  - `LiveEvents` (événements internes `stopPassed`, `sharingCompleted`) : le module
+    des signalements s'y abonne. Le module temps réel ne dépend JAMAIS du module
+    des signalements (sinon dépendance circulaire).
+- **Signalements et confiance** (`src/reports/`) :
+  - règles chiffrées dans `TRUST_RULES` (`@buslive/shared/trust.ts`), fonctions
+    pures `voteWeight`, `resolveReport`, `reportLifetimeMinutes`, `trustLevel` ;
+  - points versés UNIQUEMENT via `TrustService.award` (dans une transaction, ligne
+    utilisateur verrouillée `FOR UPDATE`, historique `trust_events`) ;
+  - décision par mise à jour conditionnelle (statut encore ACTIVE) : points versés
+    une seule fois ;
+  - doublon (même type, ligne, sens, arrêt, horaire) = confirmation de l'existant ;
+  - preuves automatiques : un passage observé (`stop_passage_observations`, anonyme)
+    dément un « pas venu » et confirme un « bus passé » (poids 3) ;
+  - pas de texte libre ; la position de l'auteur n'est pas gardée (seulement sa
+    distance à l'arrêt), sauf pour « arrêt déplacé » (position proposée) ;
+  - statistiques : `computeLineStats` (`@buslive/shared/stats.ts`), pas de
+    pourcentage sous 10 passages observés.
+- `@buslive/shared` : `departures.ts` est séparé de `network.ts` pour éviter une
+  dépendance circulaire avec `reports.ts` (avec zod, un cycle donne des schémas
+  `undefined` au chargement).
+- Tests e2e : lancer avec une limite de temps (`timeout`) ; fermer les sockets
+  dans un `finally` (un socket ouvert empêche Jest de s'arrêter).
 - **Seed** (`pnpm --filter @buslive/api db:seed`) : idempotent (upsert par code).
   Les 24 gouvernorats sont des données réelles ; `prisma/seed/data/mahdia-demo.ts`
   contient des **données de test inventées** (lignes, horaires) à remplacer. En
@@ -205,8 +234,12 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
     Le client mobile doit donc **sérialiser** ses rafraîchissements (une seule
     requête `/auth/refresh` à la fois).
 - **Limitation des requêtes** : guard maison `@RateLimit()` (`src/common/rate-limit/`),
-  fenêtre fixe en mémoire par route et par IP, 429 + `Retry-After`. À passer sur
-  Redis s'il y a plusieurs instances de l'API.
+  fenêtre fixe en mémoire, 429 + `Retry-After`. Compte **par utilisateur** s'il est
+  connecté (les opérateurs mobiles partagent des IP entre abonnés : CGNAT), sinon
+  par IP. Il s'exécute APRÈS `JwtAuthGuard` : garder `AuthModule` avant
+  `RateLimitModule` dans `AppModule`. À passer sur Redis s'il y a plusieurs instances.
+- Routes `@Public()` : un jeton valide est quand même lu (sans jamais refuser) →
+  `@CurrentUser() user?: AuthenticatedUser` peut être défini (ex. « mon vote »).
 - Corps de requête validés par `ZodValidationPipe` avec les schémas de
   `@buslive/shared` ; documentés dans Swagger via `zodToOpenApi()`.
 - **Tests e2e** : base séparée `<nom>_test` (dérivée de `DATABASE_URL`), créée et
