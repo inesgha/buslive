@@ -75,11 +75,18 @@ export class LiveRegistry {
     return groupIntoVehicles(fresh);
   }
 
-  /** Message diffusé aux spectateurs d'une ligne (aucune information sur les passagers). */
-  lineVehicles(lineId: string, now: number): LineVehicles {
+  /**
+   * Message diffusé aux spectateurs d'une ligne (aucune information sur les passagers).
+   * « groups » évite de recalculer les bus quand l'appelant les a déjà.
+   */
+  lineVehicles(
+    lineId: string,
+    now: number,
+    groups: VehicleGroup[] = this.vehicleGroups(lineId, now),
+  ): LineVehicles {
     return {
       lineId,
-      vehicles: this.vehicleGroups(lineId, now).map((vehicle) => ({
+      vehicles: groups.map((vehicle) => ({
         id: vehicle.id,
         lineId,
         directionId: vehicle.directionId,

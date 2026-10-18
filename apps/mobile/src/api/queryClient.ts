@@ -26,11 +26,33 @@ export const queryPersister = createAsyncStoragePersister({
   key: 'buslive.queryCache',
 });
 
-/** Données utiles hors ligne : réseau, lignes, arrêts proches, prochains passages. */
-const PERSISTED_KEYS = new Set(['lines', 'line', 'nearbyStops', 'stopDepartures']);
+/**
+ * Données utiles hors ligne : réseau, lignes, arrêts proches, prochains passages,
+ * et (phase 8) les favoris et alertes de l'utilisateur connecté.
+ */
+const PERSISTED_KEYS = new Set([
+  'lines',
+  'line',
+  'nearbyStops',
+  'stopDepartures',
+  'favorites',
+  'alerts',
+]);
 
-/** Ne sauvegarde que les requêtes réussies des types ci-dessus (rien de personnel). */
+/** Données propres au compte connecté : jamais gardées après une déconnexion. */
+const PERSONAL_KEYS = ['favorites', 'alerts', 'notifications', 'myTrust'] as const;
+
+/**
+ * Ne sauvegarde que les requêtes réussies des types ci-dessus. Les seules
+ * données personnelles sauvegardées (favoris, alertes) sont effacées à la
+ * déconnexion par clearPersonalQueries.
+ */
 export function shouldPersistQuery(query: Pick<Query, 'queryKey' | 'state'>): boolean {
   const [kind] = query.queryKey;
   return typeof kind === 'string' && PERSISTED_KEYS.has(kind) && query.state.status === 'success';
+}
+
+/** Oublie les données du compte (déconnexion, changement de compte, session expirée). */
+export function clearPersonalQueries(): void {
+  for (const key of PERSONAL_KEYS) queryClient.removeQueries({ queryKey: [key] });
 }

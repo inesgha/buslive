@@ -25,6 +25,7 @@ function authResponse(refreshToken: string, accessToken: string): AuthResponse {
       role: 'USER',
       locale: 'fr',
       phone: null,
+      notifyReportOutcome: true,
       createdAt: '2026-10-18T10:00:00.000Z',
     },
     tokens: {

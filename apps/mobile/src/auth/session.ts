@@ -50,6 +50,12 @@ export const session = {
     notify(response.user);
   },
 
+  /** Profil modifié (langue, préférences) : mis à jour en cache et à l'écran. */
+  async updateProfile(user: UserProfile): Promise<void> {
+    await saveCachedProfile(user);
+    notify(user);
+  },
+
   /** Oublie tout (déconnexion ou session révoquée). */
   async clear(): Promise<void> {
     accessToken = null;

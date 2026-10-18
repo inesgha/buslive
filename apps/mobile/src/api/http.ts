@@ -18,7 +18,7 @@ export function apiBaseUrl(): string {
 }
 
 export interface HttpOptions<S extends z.ZodType | undefined> {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   /** Schéma zod de la réponse. Sans schéma, la réponse est ignorée (ex. 204). */
   schema?: S;

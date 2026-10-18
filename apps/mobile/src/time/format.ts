@@ -1,4 +1,10 @@
-import { addDays, minutesToTime, minutesUntil, type ServiceClock } from '@buslive/shared';
+import {
+  addDays,
+  minutesToTime,
+  minutesUntil,
+  type ServiceClock,
+  tunisClock,
+} from '@buslive/shared';
 import type { TFunction } from 'i18next';
 
 /**
@@ -40,4 +46,16 @@ export function formatPassage(
 /** Temps d'arrivée EN DIRECT : 0 → « Maintenant », 4 → « dans 4 min ». */
 export function formatEta(etaMinutes: number, t: TFunction): string {
   return etaMinutes < 1 ? t('time.now') : t('time.inMinutes', { count: etaMinutes });
+}
+
+/**
+ * Heure d'une notification (heure de Tunis) : « 07:32 » le jour même,
+ * sinon « 19/10 · 07:32 ».
+ */
+export function formatNotificationTime(isoDateTime: string, clock: ServiceClock): string {
+  const at = tunisClock(new Date(isoDateTime));
+  const time = minutesToTime(at.minutes);
+  if (at.isoDate === clock.isoDate) return time;
+  const [, month, day] = at.isoDate.split('-');
+  return `${day}/${month} · ${time}`;
 }

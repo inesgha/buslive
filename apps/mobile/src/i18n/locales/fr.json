@@ -66,7 +66,26 @@
   },
   "alerts": {
     "title": "Alertes",
-    "placeholder": "Bientôt : alertes de bus qui approche et alternatives (louage, covoiturage)."
+    "signedOutTitle": "Tes alertes de trajet",
+    "signedOutMessage": "Connecte-toi pour être prévenu quand ton bus approche ou qu’un problème touche ta ligne.",
+    "signIn": "Se connecter",
+    "mine": "Mes alertes",
+    "empty": "Aucune alerte. Crée-en une avec le bouton ci-dessous, ou avec la cloche d’un arrêt.",
+    "new": "Nouvelle alerte",
+    "toggle": "Activer l’alerte",
+    "recent": "Notifications récentes",
+    "noNotifications": "Aucune notification pour le moment.",
+    "markAllRead": "Tout marquer comme lu",
+    "unread": "Non lue",
+    "loadError": "Impossible de charger tes alertes.",
+    "alternativesTitle": "Alternatives (louage, covoiturage)",
+    "alternativesSoon": "Bientôt disponible.",
+    "summary": "{{days}} · de {{start}} à {{end}}",
+    "lead": "Prévenir {{minutes}} min avant",
+    "liveOnly": "« Bus qui approche » ne marche que si un passager partage la position du bus.",
+    "pushDenied": "Notifications refusées : tes alertes s’affichent seulement ici.",
+    "pushExpoGo": "Expo Go ne reçoit pas les notifications push : tes alertes s’affichent seulement ici.",
+    "pushPlatform": "Notifications push pas encore disponibles sur iPhone : tes alertes s’affichent ici."
   },
   "profile": {
     "title": "Profil",
@@ -211,5 +230,86 @@
     "observed": "Passages observés : {{count}}",
     "notEnough": "Pas encore assez de données. Partage la position du bus pour aider !",
     "minutes": "{{value}} min"
+  },
+  "favorites": {
+    "add": "Ajouter aux favoris",
+    "remove": "Retirer des favoris",
+    "title": "Mes favoris",
+    "stops": "Arrêts favoris",
+    "allLines": "Toutes les lignes"
+  },
+  "alertForm": {
+    "createTitle": "Nouvelle alerte",
+    "editTitle": "Modifier l’alerte",
+    "chooseStop": "Pour quel arrêt ?",
+    "favoriteStops": "Arrêts favoris",
+    "nearbyStops": "Arrêts proches",
+    "noStops": "Aucun arrêt à proposer. Ajoute un arrêt aux favoris depuis la carte.",
+    "changeStop": "Changer d’arrêt",
+    "line": "Ligne et sens",
+    "noLines": "Aucune ligne ne dessert cet arrêt.",
+    "lead": "Me prévenir quand le bus arrive dans",
+    "leadOption": "{{minutes}} min",
+    "days": "Jours",
+    "window": "Plage horaire",
+    "from": "De",
+    "to": "À",
+    "earlier": "{{label}} : 15 min plus tôt",
+    "later": "{{label}} : 15 min plus tard",
+    "notifyApproach": "Bus qui approche",
+    "notifyApproachHint": "Quand un passager partage la position du bus.",
+    "notifyIncidents": "Perturbations",
+    "notifyIncidentsHint": "Panne, retard, bus pas venu… confirmés par des passagers.",
+    "save": "Enregistrer",
+    "delete": "Supprimer l’alerte",
+    "deleteConfirmTitle": "Supprimer cette alerte ?",
+    "deleteConfirm": "Supprimer",
+    "incomplete": "Choisis une ligne, au moins un jour et un type de notification.",
+    "saveError": "Impossible d’enregistrer l’alerte.",
+    "notFound": "Cette alerte n’existe plus.",
+    "limit": "Tu as atteint le nombre maximal d’alertes (10)."
+  },
+  "weekdays": {
+    "short": {
+      "mon": "Lun",
+      "tue": "Mar",
+      "wed": "Mer",
+      "thu": "Jeu",
+      "fri": "Ven",
+      "sat": "Sam",
+      "sun": "Dim"
+    },
+    "presets": {
+      "everyDay": "Tous les jours",
+      "weekdays": "Du lundi au vendredi",
+      "mondayToSaturday": "Du lundi au samedi",
+      "weekend": "Le week-end"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "channels": {
+      "approaching": "Bus qui approche",
+      "incidents": "Perturbations",
+      "account": "Mon compte"
+    },
+    "status": {
+      "granted": "Activées sur ce téléphone.",
+      "denied": "Refusées sur ce téléphone.",
+      "undetermined": "Pas encore autorisées.",
+      "expoGo": "Non reçues dans Expo Go : il faut le build de développement.",
+      "platform": "Pas encore disponibles sur iPhone.",
+      "failed": "Ce téléphone n’a pas pu être enregistré (Firebase non configuré ?)."
+    },
+    "allow": "Autoriser les notifications",
+    "openSettings": "Ouvrir les réglages",
+    "test": "M’envoyer une notification d’essai",
+    "testSent": "Essai envoyé ({{count}} téléphone(s)). Il apparaît aussi dans l’onglet Alertes.",
+    "testError": "Impossible d’envoyer l’essai.",
+    "reportOutcome": "Résultat de mes signalements",
+    "reportOutcomeHint": "Être prévenu quand ils sont confirmés ou démentis."
+  },
+  "stopActions": {
+    "createAlert": "Créer une alerte pour cet arrêt"
   }
 }

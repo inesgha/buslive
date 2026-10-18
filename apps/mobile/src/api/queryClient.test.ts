@@ -9,6 +9,8 @@ describe('shouldPersistQuery', () => {
     [['line', 'abc'], true],
     [['nearbyStops', '35.498', '11.047'], true],
     [['stopDepartures', 'abc'], true],
+    [['favorites'], true],
+    [['alerts'], true],
   ])('sauvegarde %j quand la requête a réussi', (key, expected) => {
     expect(shouldPersistQuery(query(key, 'success'))).toBe(expected);
   });
@@ -18,7 +20,9 @@ describe('shouldPersistQuery', () => {
     expect(shouldPersistQuery(query(['lines'], 'pending'))).toBe(false);
   });
 
-  it('ne sauvegarde pas les autres données (ex. données personnelles)', () => {
+  it('ne sauvegarde pas les autres données (ex. notifications, signalements)', () => {
     expect(shouldPersistQuery(query(['me'], 'success'))).toBe(false);
+    expect(shouldPersistQuery(query(['notifications'], 'success'))).toBe(false);
+    expect(shouldPersistQuery(query(['lineReports', 'abc'], 'success'))).toBe(false);
   });
 });

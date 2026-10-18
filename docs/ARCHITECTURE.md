@@ -77,8 +77,8 @@ cible, et précise ce qui existe déjà.
    les 3 s, et de façon anonyme.
 6. **Vie privée** : le registre est en mémoire. La base ne garde que la session
    et sa dernière position.
-7. **À faire plus tard** : alertes « bus qui approche » sur les favoris
-   (phase 8) et passages observés pour les statistiques (phase 7).
+7. Les mêmes calculs servent aux passages observés (phase 7) et aux alertes
+   « bus qui approche » (phase 8, événement interne `vehiclesUpdated`).
 
 ## Signalements et confiance (phase 7, en place ; modération en phase 10)
 
@@ -115,6 +115,43 @@ cible, et précise ce qui existe déjà.
 - **Modération (phase 10)** : les « arrêts déplacés » confirmés, ainsi que les
   lignes et arrêts proposés par les utilisateurs, seront validés par un
   modérateur.
+
+## Favoris, alertes et notifications push (phase 8, en place)
+
+```
+ bus en direct (vehiclesUpdated) ──┐                        ┌─▶ historique (notifications)
+                                   ├─▶ moteur d'alertes ────┤
+ signalement tranché ──────────────┘   (règles partagées)   └─▶ PushSender ─▶ FCM ─▶ téléphone
+ (reportResolved)                      anti-doublon en base       (log en dev, memory en test)
+```
+
+- **Favoris** : lignes et arrêts, liés au compte (retrouvés sur un autre
+  téléphone), gardés dans le cache hors ligne et effacés à la déconnexion.
+- **Alerte « mon trajet »** : une ligne, un sens, un arrêt, des jours et une
+  plage horaire (heure de Tunis). Elle déclenche :
+  - **« Bus qui approche »** : un bus **en direct** arrivera à l'arrêt dans le
+    délai choisi (5, 10 ou 15 min). Jamais à partir des horaires théoriques,
+    trop peu fiables. Au plus une notification par alerte toutes les 30 min ;
+  - **« Perturbation »** : un signalement **confirmé** touche le trajet (pas
+    venu, retard, panne sur le sens ; bus passé ou arrêt déplacé à l'arrêt).
+    Elle compte dès 60 min avant le début de la plage. L'auteur et les votants,
+    déjà au courant, ne la reçoivent pas.
+- **Résultat de mes signalements** : confirmé (+10) ou démenti (−15), si
+  l'utilisateur le souhaite (`users.notify_report_outcome`).
+- **Une seule notification par événement et par personne** : contrainte unique
+  `(user_id, dedupe_key)` en base, sûre même si deux déclenchements arrivent en
+  même temps.
+- **Textes** : écrits une seule fois dans `@buslive/shared`
+  (`renderNotification`), en français et en arabe. L'API les envoie dans la
+  langue du compte ; l'app les réutilise pour l'historique.
+- **Envoi** : FCM directement (firebase-admin), derrière l'interface
+  `PushSender`. Un jeton refusé par FCM est supprimé. Un iPhone demandera une
+  version APNs (non faite : le lancement vise Android).
+- **Limites connues** : envoi direct depuis l'API, sans file d'attente, et cache
+  des alertes en mémoire (une instance). Avec beaucoup d'utilisateurs ou
+  plusieurs instances : file d'attente et Redis (phase 11).
+- **Nettoyage** : historique gardé 30 jours ; un téléphone muet depuis 60 jours
+  est oublié ; 5 téléphones au plus par compte.
 
 ## Modèle du réseau (phase 3, en place)
 
@@ -188,8 +225,9 @@ Governorate ──< Locality
 - `GET /lines/:id` renvoie tout ce qu'il faut pour calculer les horaires d'une
   ligne : départs, calendriers et temps de trajet entre arrêts.
 - L'app sauvegarde son cache 24 h sur le téléphone (TanStack Query + AsyncStorage) :
-  lignes, détails des lignes, arrêts proches et prochains passages. Aucune donnée
-  personnelle n'y est sauvegardée.
+  lignes, détails des lignes, arrêts proches et prochains passages. Les seules
+  données personnelles sauvegardées sont les favoris et les alertes (phase 8),
+  effacées à la déconnexion.
 - Le détail d'une ligne calcule ses horaires sur le téléphone, avec les mêmes
   fonctions que l'API.
 - Sans réseau, un bandeau « Hors ligne — horaires théoriques » s'affiche. Les

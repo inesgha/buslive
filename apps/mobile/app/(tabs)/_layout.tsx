@@ -1,8 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useQuery } from '@tanstack/react-query';
 import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { fetchNotifications } from '@/api/me';
+import { queryKeys } from '@/api/network';
+import { useAuth } from '@/auth/AuthProvider';
 import { ReportTabButton } from '@/components/ReportTabButton';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
@@ -41,6 +45,15 @@ function tabIcon(active: IconName, inactive: IconName) {
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const { state } = useAuth();
+  // Nombre de notifications non lues, affiché sur l'onglet Alertes.
+  const notifications = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: fetchNotifications,
+    enabled: state.status === 'signedIn',
+    refetchInterval: 60_000,
+  });
+  const unread = state.status === 'signedIn' ? (notifications.data?.unread ?? 0) : 0;
 
   return (
     <Tabs
@@ -91,6 +104,8 @@ export default function TabsLayout() {
           title: t('alerts.title'),
           tabBarLabel: t('tabs.alerts'),
           tabBarIcon: tabIcon('notifications', 'notifications-outline'),
+          tabBarBadge: unread > 0 ? (unread > 9 ? '9+' : unread) : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.notCame, color: colors.card },
         }}
       />
       <Tabs.Screen

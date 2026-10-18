@@ -1,10 +1,12 @@
 import { minutesUntil, type NearbyStop } from '@buslive/shared';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { fetchStopDepartures, queryKeys } from '@/api/network';
+import { favoriteStopOf } from '@/favorites/favorites';
 import { useIsOnline } from '@/hooks/useIsOnline';
 import { useNow } from '@/hooks/useNow';
 import { useServiceClock } from '@/hooks/useServiceClock';
@@ -15,6 +17,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/tokens';
 
 import { AppText } from './AppText';
+import { FavoriteButton } from './FavoriteButton';
+import { IconButton } from './IconButton';
 import { LiveArrivalRow } from './LiveArrivalRow';
 import { PassageRow } from './PassageRow';
 import { ReportCard } from './ReportCard';
@@ -24,7 +28,10 @@ const VISIBLE_PASSAGES = 6;
 /** Nombre de signalements affichés dans le panneau. */
 const VISIBLE_REPORTS = 3;
 
-/** Panneau d'un arrêt sélectionné sur la carte : ses prochains passages. */
+/**
+ * Panneau d'un arrêt sélectionné sur la carte : ses prochains passages, avec
+ * l'étoile « favori » et la cloche « créer une alerte ».
+ */
 export function StopPassagesPanel({ stop, onClose }: { stop: NearbyStop; onClose: () => void }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -63,6 +70,12 @@ export function StopPassagesPanel({ stop, onClose }: { stop: NearbyStop; onClose
             {t('stop.nextDepartures')}
           </AppText>
         </View>
+        <FavoriteButton target={{ kind: 'stops', id: stop.id, stop: favoriteStopOf(stop) }} />
+        <IconButton
+          icon="notifications-outline"
+          accessibilityLabel={t('stopActions.createAlert')}
+          onPress={() => router.push({ pathname: '/alerts/edit', params: { stopId: stop.id } })}
+        />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('stop.close')}

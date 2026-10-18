@@ -26,6 +26,8 @@ function applyTestEnv() {
   process.env.RATE_LIMIT_MAX = '1000';
   // Diffusion des bus en direct quasi immédiate : les tests n'attendent pas 3 s.
   process.env.LIVE_BROADCAST_INTERVAL_MS = '50';
+  // Notifications gardées en mémoire : les tests vérifient ce qui serait parti.
+  process.env.PUSH_PROVIDER = 'memory';
   return url;
 }
 

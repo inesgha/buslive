@@ -31,6 +31,7 @@ import { ensureDirection } from '@/i18n/direction';
 // Définit la tâche de localisation en arrière-plan dès le démarrage (voir le fichier).
 import '@/live/backgroundTask';
 import { ShareProvider } from '@/live/ShareProvider';
+import { PushProvider } from '@/notifications/PushProvider';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
 
@@ -79,11 +80,13 @@ export default function RootLayout() {
         >
           <ThemeProvider>
             <AuthProvider>
-              <ShareProvider>
-                <ThemedNavigation>
-                  <RootStack />
-                </ThemedNavigation>
-              </ShareProvider>
+              <PushProvider>
+                <ShareProvider>
+                  <ThemedNavigation>
+                    <RootStack />
+                  </ThemedNavigation>
+                </ShareProvider>
+              </PushProvider>
             </AuthProvider>
           </ThemeProvider>
         </PersistQueryClientProvider>
@@ -141,6 +144,8 @@ function RootStack() {
       {/* Le titre (numéro et nom de la ligne) est fixé par l'écran lui-même. */}
       <Stack.Screen name="lines/[id]" options={{ title: '' }} />
       <Stack.Screen name="share" options={{ title: t('share.title'), presentation: 'modal' }} />
+      {/* Le titre (création ou modification) est fixé par l'écran lui-même. */}
+      <Stack.Screen name="alerts/edit" options={{ title: '', presentation: 'modal' }} />
     </Stack>
   );
 }

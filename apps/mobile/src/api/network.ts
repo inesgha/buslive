@@ -8,6 +8,8 @@ import {
   NearbyStopSchema,
   type StopDepartures,
   StopDeparturesSchema,
+  type StopDetail,
+  StopDetailSchema,
 } from '@buslive/shared';
 import { z } from 'zod';
 
@@ -38,6 +40,11 @@ export function fetchStopDepartures(stopId: string): Promise<StopDepartures> {
   return apiRequest(`/stops/${stopId}/departures`, { schema: StopDeparturesSchema });
 }
 
+/** Détail d'un arrêt : les lignes et les sens qui le desservent (formulaire d'alerte). */
+export function fetchStop(stopId: string): Promise<StopDetail> {
+  return apiRequest(`/stops/${stopId}`, { schema: StopDetailSchema });
+}
+
 /** Clés de cache TanStack Query, centralisées pour éviter les fautes de frappe. */
 export const queryKeys = {
   lines: ['lines'] as const,
@@ -45,8 +52,13 @@ export const queryKeys = {
   nearbyStops: (center: GeoPoint) =>
     // Arrondi à ~100 m : de petits déplacements réutilisent le même résultat.
     ['nearbyStops', center.latitude.toFixed(3), center.longitude.toFixed(3)] as const,
+  stop: (stopId: string) => ['stop', stopId] as const,
   stopDepartures: (stopId: string) => ['stopDepartures', stopId] as const,
   lineReports: (lineId: string) => ['lineReports', lineId] as const,
   lineStats: (lineId: string) => ['lineStats', lineId] as const,
   myTrust: ['myTrust'] as const,
+  // Données personnelles (phase 8) : effacées à la déconnexion (clearPersonalQueries).
+  favorites: ['favorites'] as const,
+  alerts: ['alerts'] as const,
+  notifications: ['notifications'] as const,
 };

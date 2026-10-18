@@ -31,20 +31,22 @@ enum Locale {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
+  id                  String   @id @default(uuid()) @db.Uuid
   /// Toujours stocké nettoyé et en minuscules (voir EmailSchema).
-  email        String   @unique
+  email               String   @unique
   /// Empreinte argon2id du mot de passe, jamais le mot de passe lui-même.
-  passwordHash String   @map("password_hash")
-  displayName  String   @map("display_name")
-  role         Role     @default(USER)
-  locale       Locale   @default(fr)
+  passwordHash        String   @map("password_hash")
+  displayName         String   @map("display_name")
+  role                Role     @default(USER)
+  locale              Locale   @default(fr)
   /// Format +216XXXXXXXX. Réservé à une future connexion par SMS.
-  phone        String?  @unique
+  phone               String?  @unique
   /// Score de confiance (voir TRUST_RULES dans @buslive/shared), entre -100 et 1000.
-  trustScore   Int      @default(0) @map("trust_score")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  trustScore          Int      @default(0) @map("trust_score")
+  /// Notification quand mes signalements sont confirmés ou démentis (phase 8).
+  notifyReportOutcome Boolean  @default(true) @map("notify_report_outcome")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   refreshTokens RefreshToken[]
   proposedLines Line[]
@@ -53,6 +55,11 @@ model User {
   reports       Report[]
   reportVotes   ReportVote[]
   trustEvents   TrustEvent[]
+  favoriteLines FavoriteLine[]
+  favoriteStops FavoriteStop[]
+  alerts        Alert[]
+  pushDevices   PushDevice[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -174,6 +181,8 @@ model Line {
   liveSessions LiveSession[]
   reports      Report[]
   observations StopPassageObservation[]
+  favoritedBy  FavoriteLine[]
+  alerts       Alert[]
 
   @@unique([governorateId, code])
   @@index([status])
@@ -197,6 +206,7 @@ model LineDirection {
   liveSessions LiveSession[]
   reports      Report[]
   observations StopPassageObservation[]
+  alerts       Alert[]
 
   @@unique([lineId, direction])
   @@map("line_directions")
@@ -227,6 +237,8 @@ model Stop {
   lineStops    LineStop[]
   reports      Report[]
   observations StopPassageObservation[]
+  favoritedBy  FavoriteStop[]
+  alerts       Alert[]
 
   /// Index spatial : rend rapides les recherches « arrêts à moins de X mètres ».
   @@index([location], type: Gist)
@@ -477,4 +489,119 @@ model StopPassageObservation {
   @@index([lineId, observedAt])
   @@index([directionId, stopId, observedAt])
   @@map("stop_passage_observations")
+}
+
+// ---------------------------------------------------------------------------
+// Favoris, alertes et notifications push (phase 8)
+// ---------------------------------------------------------------------------
+
+/// Doit rester identique à PUSH_PLATFORMS (@buslive/shared).
+enum PushPlatform {
+  ANDROID
+  IOS
+}
+
+/// Doit rester identique à NOTIFICATION_TYPES (@buslive/shared).
+enum NotificationType {
+  BUS_APPROACHING
+  LINE_INCIDENT
+  REPORT_RESOLVED
+  TEST
+}
+
+model FavoriteLine {
+  userId    String   @map("user_id") @db.Uuid
+  lineId    String   @map("line_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  line Line @relation(fields: [lineId], references: [id], onDelete: Cascade)
+
+  /// La clé primaire empêche les doublons.
+  @@id([userId, lineId])
+  @@map("favorite_lines")
+}
+
+model FavoriteStop {
+  userId    String   @map("user_id") @db.Uuid
+  stopId    String   @map("stop_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stop Stop @relation(fields: [stopId], references: [id], onDelete: Cascade)
+
+  @@id([userId, stopId])
+  @@map("favorite_stops")
+}
+
+/// Alerte « mon trajet » : ligne, sens, arrêt et plage horaire (voir ALERT_RULES).
+model Alert {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  lineId          String    @map("line_id") @db.Uuid
+  directionId     String    @map("direction_id") @db.Uuid
+  stopId          String    @map("stop_id") @db.Uuid
+  /// Prévenir quand le bus arrive dans ce délai (minutes).
+  leadMinutes     Int       @map("lead_minutes")
+  /// Jours ISO 8601, triés : 1 = lundi … 7 = dimanche.
+  days            Int[]
+  /// Plage horaire, en minutes depuis minuit (heure de Tunis).
+  startMinutes    Int       @map("start_minutes")
+  endMinutes      Int       @map("end_minutes")
+  notifyApproach  Boolean   @default(true) @map("notify_approach")
+  notifyIncidents Boolean   @default(true) @map("notify_incidents")
+  enabled         Boolean   @default(true)
+  /// Dernière notification « bus qui approche » (anti-spam, voir approachCooldownMinutes).
+  lastApproachAt  DateTime? @map("last_approach_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  line      Line          @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  direction LineDirection @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  stop      Stop          @relation(fields: [stopId], references: [id], onDelete: Cascade)
+
+  /// Le moteur d'alertes cherche les alertes actives d'une ligne.
+  @@index([lineId, enabled])
+  @@index([userId])
+  @@map("alerts")
+}
+
+/// Téléphone qui reçoit les notifications push (jeton FCM).
+model PushDevice {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @map("user_id") @db.Uuid
+  /// Un jeton désigne un téléphone : s'il change de compte, la ligne change de propriétaire.
+  token      String       @unique
+  platform   PushPlatform
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Mis à jour à chaque ouverture de l'app : les appareils oubliés sont supprimés.
+  lastSeenAt DateTime     @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lastSeenAt])
+  @@map("push_devices")
+}
+
+/// Historique des notifications (onglet Alertes), gardé 30 jours.
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  /// Données du contenu (voir NotificationContentSchema), validées avant écriture.
+  data      Json
+  /// Clé anti-doublon : la même notification n'est jamais créée deux fois
+  /// pour un utilisateur (ex. « incident:<id du signalement> »).
+  dedupeKey String           @map("dedupe_key")
+  readAt    DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("notifications")
 }

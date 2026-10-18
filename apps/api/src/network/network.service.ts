@@ -8,6 +8,7 @@ import {
   toDirectionSummary,
   toGeoPoints,
   toGovernorate,
+  toLineSummary,
   toServiceCalendar,
   toStopSummary,
 } from './network.mapper';
@@ -37,19 +38,7 @@ export class NetworkService {
       },
     });
 
-    return lines
-      .sort((a, b) => compareLineCodes(a.code, b.code))
-      .map((line) => ({
-        id: line.id,
-        code: line.code,
-        nameFr: line.nameFr,
-        nameAr: line.nameAr,
-        type: line.type,
-        color: line.color,
-        governorateCode: line.governorate.code,
-        operator: line.operator ? { code: line.operator.code, name: line.operator.name } : null,
-        directions: line.directions.map(toDirectionSummary),
-      }));
+    return lines.sort((a, b) => compareLineCodes(a.code, b.code)).map(toLineSummary);
   }
 
   /** Détail complet d'une ligne : de quoi calculer ses horaires sans réseau. */

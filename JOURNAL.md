@@ -1133,3 +1133,237 @@ feat(reports): signalements, score de confiance et statistiques par ligne
 - passages observés anonymes et statistiques (ponctualité, retard moyen) sur 30 jours
 - limitation des requêtes par utilisateur connecté (CGNAT) ; mobile : onglet Signaler, votes, confiance
 ```
+
+## Phase 8 — Favoris, alertes et notifications push (18/10/2026)
+
+Choix validés avant de commencer :
+
+- envoi **par FCM directement** (firebase-admin), comme prévu au cahier des charges ;
+- favoris **liés au compte** ;
+- **pas de rappels** fondés sur les horaires théoriques, pour l'instant.
+
+### Ce qui a été fait et pourquoi
+
+**Règles et textes (fonctions pures dans `@buslive/shared`, testées)**
+
+- `alerts.ts` :
+  - `ALERT_RULES` : 10 alertes par compte ; délais de 5, 10 ou 15 min ; une seule
+    notification « approche » toutes les 30 min ; perturbations prises en compte
+    60 min avant le début de la plage ;
+  - `isAlertActive` (jour et plage horaire, heure de Tunis) ;
+  - `approachingEta` : même sens, bus pas encore passé, arrivée dans le délai ;
+  - `incidentConcernsAlert` : un « pas venu », un retard ou une panne touchent
+    tout le sens ; « bus passé » ne touche que son arrêt, « arrêt déplacé »
+    l'arrêt dans les deux sens. « Plein » n'est pas notifié : c'est trop
+    passager.
+- `notifications.ts` : types, canaux Android, et **textes en français et en
+  arabe écrits une seule fois** (`renderNotification`). L'API les envoie dans la
+  langue du compte, et l'app les réutilise pour l'historique. `arabicCount`
+  accorde le nom au nombre (دقيقتين, 5 دقائق, 15 دقيقة).
+- `favorites.ts`, `UpdateProfileSchema`, et le champ `notifyReportOutcome` du
+  profil.
+
+**API**
+
+- **Base** (migration `favorites_alerts_notifications`) :
+  - `favorite_lines` et `favorite_stops` (la clé primaire empêche les doublons) ;
+  - `alerts` ;
+  - `push_devices` (jeton unique) ;
+  - `notifications`, avec la contrainte unique `(user_id, dedupe_key)` ;
+  - `users.notify_report_outcome` ;
+  - deux contraintes CHECK écrites à la main (jours et plage horaire), en
+    garde-fou côté base.
+- **Routes `/me/…`** :
+  - favoris : `PUT` et `DELETE`, **idempotents** ;
+  - alertes : CRUD, en vérifiant que l'arrêt est bien desservi par le sens
+    choisi ;
+  - téléphones (enregistrement, retrait à la déconnexion) ;
+  - historique, lecture, notification d'essai ;
+  - `PATCH /me` : langue et préférence.
+- **Moteur d'alertes** :
+  - le module temps réel émet un nouvel événement interne, `vehiclesUpdated`,
+    au rythme de la diffusion Socket.io ;
+  - le module des signalements émet `reportResolved` **après** la transaction
+    de décision ;
+  - le moteur écoute les deux, sans dépendance circulaire.
+- **Anti-spam, sûr même avec des déclenchements simultanés ou après un
+  redémarrage** :
+  - « bus qui approche » : une mise à jour conditionnelle de
+    `alerts.last_approach_at` (30 min) ;
+  - perturbations et résultats : la clé unique, qui garantit une seule
+    notification par signalement et par personne. L'auteur et les votants ne
+    reçoivent pas la perturbation : ils sont déjà au courant.
+- **Envoi** : interface `PushSender`, choisie par `PUSH_PROVIDER` :
+  - `log` (par défaut) : la notification s'affiche dans la console, **tout
+    marche sans Firebase** ;
+  - `fcm` : firebase-admin, chargé seulement à ce moment-là ;
+  - `memory` : tests.
+
+  Les jetons refusés par FCM sont supprimés. Un échec d'envoi ne fait jamais
+  échouer l'action qui l'a déclenché.
+
+- **Nettoyage** toutes les heures : historique au-delà de 30 jours, téléphones
+  muets depuis 60 jours, 5 téléphones au plus par compte.
+
+**Mobile**
+
+- **Étoile « favori »** dans l'en-tête du détail d'une ligne et dans le panneau
+  d'un arrêt. Elle change **immédiatement**, et revient en arrière si la requête
+  échoue. Sans compte, elle mène à la connexion.
+- **Onglet Lignes** : « Mes favoris » en tête (lignes, puis arrêts). Un arrêt
+  favori s'ouvre sur la carte.
+- **Onglet Alertes** (il était vide jusqu'ici) :
+  - mes alertes, avec leur interrupteur ;
+  - historique des notifications (non lues en évidence, « tout marquer comme
+    lu ») ;
+  - avertissement si les push ne peuvent pas arriver sur ce téléphone ;
+  - place réservée aux alternatives de la phase 9.
+
+  La pastille rouge de l'onglet donne le nombre de notifications non lues.
+
+- **Formulaire d'alerte** (`alerts/edit`), ouvert par la cloche d'un arrêt ou par
+  « Nouvelle alerte » :
+  - choix de l'arrêt (favoris, puis arrêts proches), puis de la ligne et du
+    sens (déduits s'il n'y en a qu'un) ;
+  - délai, jours, et heures par quart d'heure avec « − » et « + » (sans
+    nouvelle dépendance native) ;
+  - logique en fonctions pures (`alertForm.ts`).
+- **Profil → Notifications** :
+  - état sur ce téléphone, avec « Autoriser » ou « Ouvrir les réglages » ;
+  - essai ;
+  - préférence « résultat de mes signalements ».
+- **Notifications natives** (`src/notifications/`) :
+  - `expo-notifications` est **chargé à la demande**, jamais dans Expo Go ;
+  - trois canaux Android traduits ;
+  - toucher une notification ouvre la ligne concernée ;
+  - la permission est demandée à la **création de la première alerte**, pas au
+    lancement ;
+  - l'icône de notification est un bus blanc de 96×96 px, comme l'exige
+    Android ;
+  - `app.config.ts` ajoute `google-services.json` au build par une variable
+    d'environnement.
+- **Déconnexion** : le téléphone est retiré du compte (3 s au plus, hors ligne
+  compris), et les favoris, alertes et notifications sont effacés du cache.
+
+### Écarts et problèmes rencontrés
+
+- **Destinations** : les données écrivent déjà « vers Ksour Essef ». Mes
+  premiers textes auraient affiché « Bus 10 vers vers Ksour Essef ». Les textes
+  reprennent maintenant la destination telle quelle (vu en préparant les tests
+  e2e).
+- **Expo Go** : importer `expo-notifications` y affiche un avertissement à chaque
+  lancement, et la récupération du jeton y lève une erreur sur Android. D'où le
+  chargement à la demande, et la détection `pushSupport()`.
+- **Pluriels** : pas de suffixes i18next (`_one`, `_other`). L'arabe a six formes,
+  et le test de parité des clés aurait cassé. J'ai choisi des formulations sans
+  pluriel.
+- **Avertissement `pg`** pendant les tests e2e (« client.query() when the client
+  is already executing a query ») : il existait déjà en phase 6. Il vient de
+  Prisma et n'a aucun effet avec `pg` 8 ; c'est noté dans CLAUDE.md pour une
+  future mise à jour.
+- **`expo-doctor`** a échoué deux fois sur un contrôle qui interroge l'API
+  d'Expo (« fetch failed »), puis a validé ses 20 contrôles : c'était une coupure
+  réseau passagère.
+- Une commande d'écriture de documentation passée par le shell a mal interprété
+  les accents graves ; la section a été réécrite avec l'outil d'édition. Ces
+  messages d'erreur n'ont touché aucun fichier.
+
+### Fichiers créés ou modifiés
+
+```
+packages/shared/src/alerts.ts, notifications.ts, favorites.ts (+ tests) (créés)
+packages/shared/src/user.ts (préférence, PATCH /me), index.ts
+apps/api/prisma/schema.prisma, migrations/20261018183418_favorites_alerts_notifications/
+apps/api/src/favorites/ (créé) : favorites.module.ts, favorites.controller.ts, favorites.service.ts
+apps/api/src/alerts/ (créé) : alerts.module.ts, alerts.controller.ts, alerts.service.ts
+apps/api/src/notifications/ (créé) : notifications.module.ts, notifications.controller.ts,
+     notifications.service.ts, alert-engine.service.ts,
+     push/push-sender.ts, push.provider.ts, fcm-push-sender.ts, log-push-sender.ts,
+     memory-push-sender.ts, push-senders.test.ts
+apps/api/src/users/users.controller.ts (créé), users.service.ts, users.module.ts, enums-sync.test.ts
+apps/api/src/reports/reports.events.ts (créé), reports.service.ts, reports.module.ts
+apps/api/src/live/live.events.ts, live.broadcaster.ts, live.registry.ts
+apps/api/src/network/network.mapper.ts (toLineSummary), network.service.ts
+apps/api/src/config/env.schema.ts (+ test), app.module.ts, .env.example, package.json
+apps/api/test/notifications.e2e-test.ts (créé), utils.ts, test-env.cjs
+apps/mobile/app/alerts/edit.tsx (créé), (tabs)/alerts.tsx (réécrit), (tabs)/_layout.tsx,
+     (tabs)/lines.tsx, (tabs)/index.tsx, (tabs)/profile.tsx, lines/[id].tsx, _layout.tsx
+apps/mobile/src/notifications/push.ts, PushProvider.tsx (créés)
+apps/mobile/src/favorites/favorites.ts (+ test), useFavorites.ts (créés)
+apps/mobile/src/alerts/alertForm.ts (+ test), alertText.ts (créés)
+apps/mobile/src/api/me.ts (créé), network.ts, queryClient.ts (+ test), http.ts, client.test.ts
+apps/mobile/src/auth/AuthProvider.tsx, session.ts
+apps/mobile/src/components/AlertRow.tsx, NotificationRow.tsx, NotificationsCard.tsx,
+     FavoriteButton.tsx, IconButton.tsx, ChoiceChips.tsx, TimeStepper.tsx, ToggleRow.tsx,
+     AlertsComponents.test.tsx (créés), StopPassagesPanel.tsx
+apps/mobile/src/time/format.ts (+ test), i18n/locales/fr.json, ar.json
+apps/mobile/app.json (plugin), app.config.ts (créé), assets/notification-icon.png (créé),
+     eas.json (environnement EAS), .env.example, package.json
+.gitignore (clés Firebase), pnpm-workspace.yaml, pnpm-lock.yaml
+CLAUDE.md, README.md, docs/ARCHITECTURE.md, apps/api/README.md, apps/mobile/README.md, JOURNAL.md
+```
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm install
+pnpm --filter @buslive/api prisma:deploy    # nouvelles tables
+pnpm dev:api && pnpm dev:mobile
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e
+```
+
+Résultats obtenus :
+
+- lint, format et typecheck sans erreur ;
+- tests unitaires : 107 dans shared, 53 dans l'API et 101 dans le mobile ;
+- tests e2e : **109**, dont 17 nouveaux. Parmi eux :
+  - un **vrai partage de position** à environ 10 min de l'arrêt déclenche **une
+    seule** notification « bus qui approche », en arabe pour un compte en
+    arabe ; rien pour un délai trop court ni pour l'autre sens ;
+  - une panne confirmée prévient l'abonné et l'auteur (+10), mais pas les
+    votants ;
+  - la préférence « résultat de mes signalements » est respectée ;
+  - un jeton refusé par FCM est supprimé ; les favoris sont idempotents ; les
+    limites et les accès aux alertes des autres sont vérifiés ;
+- `expo-doctor` : 20 vérifications sur 20 ; le bundle Android se construit
+  (5,4 Mo) ;
+- l'API compilée démarre avec `PUSH_PROVIDER=log`, et ses 11 nouvelles routes
+  apparaissent dans Swagger ;
+- écart schéma ↔ base : « empty migration ».
+
+**Pas encore testé sur un vrai téléphone**, et aucun envoi réel par FCM : il
+faut d'abord le projet Firebase.
+
+### À configurer soi-même
+
+1. **Appliquer la migration** : `pnpm --filter @buslive/api prisma:deploy`.
+2. **Créer le projet Firebase**, puis une app Android `tn.buslive.app` ;
+   télécharger `google-services.json` dans `apps/mobile/` (ignoré par git).
+3. **Donner ce fichier à EAS** :
+   `eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --environment development --visibility secret`
+   (dans `apps/mobile`, après `eas login` et `eas init` si ce n'est pas fait).
+4. **Refaire le build de développement** (commiter d'abord) :
+   `eas build --profile development --platform android`.
+5. **Clé du compte de service** (Paramètres du projet → Comptes de service →
+   Générer une nouvelle clé privée) dans
+   `apps/api/secrets/firebase-service-account.json`. Ensuite, dans
+   `apps/api/.env` : `PUSH_PROVIDER=fcm` et
+   `GOOGLE_APPLICATION_CREDENTIALS=./secrets/firebase-service-account.json`.
+   **Cette clé donne le droit d'envoyer des notifications à tous les
+   utilisateurs : elle ne doit jamais être partagée ni versionnée.**
+6. **Faire relire les nouveaux textes arabes** : notifications, alertes, jours,
+   favoris.
+7. **Plus tard** : les icônes de l'app sont encore celles du modèle Expo ;
+   c'est à prévoir avant la publication (phase 11).
+
+### Message de commit proposé
+
+```
+feat(alerts): favoris, alertes « mon trajet » et notifications push FCM
+
+- favoris (lignes, arrêts) liés au compte, disponibles hors ligne
+- alertes : bus en direct qui approche (5/10/15 min) et perturbations confirmées, par plage horaire
+- moteur d'alertes sur les événements internes, anti-doublon en base, textes fr/ar partagés
+- envoi FCM (firebase-admin) derrière PushSender ; mode console sans Firebase
+- mobile : onglet Alertes, formulaire d'alerte, étoiles, notifications dans le Profil
+```

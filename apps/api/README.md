@@ -100,6 +100,43 @@ Un horaire = un départ du terminus (minutes depuis minuit) + un calendrier
 - Un passage de bus en direct à un arrêt est enregistré (anonyme) et sert de
   preuve automatique : il dément les « pas venu », confirme les « bus passé ».
 
+## Favoris, alertes et notifications (phase 8)
+
+| Route                                           | Accès    | Rôle                                                          |
+| ----------------------------------------------- | -------- | ------------------------------------------------------------- |
+| `GET /api/v1/me/favorites`                      | connecté | Mes lignes et arrêts favoris                                  |
+| `PUT` / `DELETE /api/v1/me/favorites/lines/:id` | connecté | Ajouter / retirer une ligne (idempotent, 204)                 |
+| `PUT` / `DELETE /api/v1/me/favorites/stops/:id` | connecté | Ajouter / retirer un arrêt (idempotent, 204)                  |
+| `GET` / `POST /api/v1/me/alerts`                | connecté | Mes alertes / en créer une (10 au plus)                       |
+| `PUT` / `DELETE /api/v1/me/alerts/:id`          | connecté | Modifier (y compris activer ou couper) / supprimer            |
+| `POST /api/v1/me/push-devices`                  | connecté | Enregistrer le jeton FCM du téléphone (à chaque démarrage)    |
+| `POST /api/v1/me/push-devices/unregister`       | connecté | Retirer ce téléphone (déconnexion)                            |
+| `GET /api/v1/me/notifications`                  | connecté | Historique (30 jours) et nombre de non lues                   |
+| `POST /api/v1/me/notifications/read`            | connecté | Marquer comme lues (toutes, sans `ids`)                       |
+| `POST /api/v1/me/notifications/test`            | connecté | Notification d'essai (3 par minute au plus)                   |
+| `PATCH /api/v1/me`                              | connecté | Langue du compte, préférence « résultat de mes signalements » |
+
+- **Moteur d'alertes** (`src/notifications/alert-engine.service.ts`) :
+  - il écoute `vehiclesUpdated` (bus en direct, au rythme de la diffusion
+    Socket.io) et `reportResolved` (signalement confirmé ou démenti) ;
+  - les règles sont des fonctions pures de `@buslive/shared` (`alerts.ts`) ;
+  - **anti-spam** : au plus une notification « bus qui approche » par alerte
+    toutes les 30 min (mise à jour conditionnelle de `alerts.last_approach_at`),
+    et une seule notification par signalement et par personne (clé unique
+    `notifications.dedupe_key`).
+- **Envoi** : interface `PushSender`, choisie par `PUSH_PROVIDER` :
+  - `log` (par défaut) : la notification est écrite dans la console, **sans
+    Firebase** ;
+  - `fcm` : envoi réel par Firebase Cloud Messaging, avec la clé du compte de
+    service indiquée par `GOOGLE_APPLICATION_CREDENTIALS` (firebase-admin n'est
+    chargé qu'à ce moment-là) ;
+  - `memory` : tests automatiques.
+
+  Un jeton refusé définitivement par FCM est supprimé.
+
+- Les textes des notifications (fr / ar) viennent de `renderNotification`
+  (`@buslive/shared`), dans la langue du compte.
+
 ## Authentification
 
 | Route                        | Accès          | Rôle                                |
@@ -154,8 +191,11 @@ src/
   auth/              inscription, connexion, jetons, guards et décorateurs
   live/              partage de position, registre des bus en direct, Socket.io
   reports/           signalements, votes, confiance, passages observés, statistiques
+  favorites/         lignes et arrêts favoris
+  alerts/            alertes « mon trajet » (CRUD, cache par ligne pour le moteur)
+  notifications/     moteur d'alertes, historique, appareils, envoi push (FCM / console)
   network/           gouvernorats, lignes, arrêts, horaires (lecture)
-  users/             accès aux utilisateurs
+  users/             accès aux utilisateurs, PATCH /me (langue, préférences)
   health/            routes de santé (Terminus) + indicateur PostGIS
   generated/prisma/  client Prisma généré (ignoré par git)
 prisma/

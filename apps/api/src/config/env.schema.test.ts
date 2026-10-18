@@ -56,4 +56,27 @@ describe('validateEnv', () => {
       }),
     ).toThrow(/valeur d’exemple/);
   });
+
+  it('envoie les notifications dans la console par défaut (sans Firebase)', () => {
+    expect(validateEnv(validEnv).PUSH_PROVIDER).toBe('log');
+  });
+
+  it('exige la clé Firebase avec PUSH_PROVIDER=fcm', () => {
+    expect(() => validateEnv({ ...validEnv, PUSH_PROVIDER: 'fcm' })).toThrow(
+      /GOOGLE_APPLICATION_CREDENTIALS/,
+    );
+    expect(
+      validateEnv({
+        ...validEnv,
+        PUSH_PROVIDER: 'fcm',
+        GOOGLE_APPLICATION_CREDENTIALS: './secrets/firebase-service-account.json',
+      }).PUSH_PROVIDER,
+    ).toBe('fcm');
+  });
+
+  it('refuse le mode « memory » (tests) en production', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, NODE_ENV: 'production', PUSH_PROVIDER: 'memory' }),
+    ).toThrow(/PUSH_PROVIDER/);
+  });
 });

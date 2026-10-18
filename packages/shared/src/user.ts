@@ -39,7 +39,26 @@ export const UserProfileSchema = z.object({
   role: RoleSchema,
   locale: LocaleSchema,
   phone: z.string().nullable(),
+  /**
+   * Recevoir une notification quand mes signalements sont confirmés ou démentis.
+   * Valeur par défaut : un profil gardé en cache avant la phase 8 reste lisible.
+   */
+  notifyReportOutcome: z.boolean().default(true),
   createdAt: z.iso.datetime(),
 });
 
 export type UserProfile = z.infer<typeof UserProfileSchema>;
+
+/**
+ * Corps de PATCH /me. La langue sert aux notifications push : elles sont
+ * rédigées côté serveur, dans la langue du compte.
+ */
+export const UpdateProfileSchema = z
+  .object({
+    locale: LocaleSchema.optional(),
+    notifyReportOutcome: z.boolean().optional(),
+  })
+  .refine((input) => Object.values(input).some((value) => value !== undefined), {
+    message: 'Rien à modifier.',
+  });
+export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;

@@ -1,7 +1,7 @@
-import type { Locale, UserProfile } from '@buslive/shared';
-import { Injectable } from '@nestjs/common';
+import type { Locale, UpdateProfileInput, UserProfile } from '@buslive/shared';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
-import type { User } from '../generated/prisma/client';
+import { Prisma, type User } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateUserData {
@@ -28,6 +28,19 @@ export class UsersService {
     return this.prisma.user.create({ data });
   }
 
+  /** Modifie les préférences du compte (langue, notifications). */
+  async update(id: string, input: UpdateProfileInput): Promise<UserProfile> {
+    try {
+      return this.toProfile(await this.prisma.user.update({ where: { id }, data: input }));
+    } catch (error) {
+      // P2025 : le compte a été supprimé entre-temps (jeton encore valide).
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Compte introuvable.');
+      }
+      throw error;
+    }
+  }
+
   /**
    * Profil renvoyé au client : on choisit explicitement les champs, pour ne
    * jamais exposer passwordHash par accident.
@@ -40,6 +53,7 @@ export class UsersService {
       role: user.role,
       locale: user.locale,
       phone: user.phone,
+      notifyReportOutcome: user.notifyReportOutcome,
       createdAt: user.createdAt.toISOString(),
     };
   }

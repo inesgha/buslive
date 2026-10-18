@@ -19,3 +19,7 @@ allowBuilds:
   unrs-resolver: false
   # Télémétrie embarquée par swagger-ui : inutile, et envoie des données à l'extérieur.
   '@scarf/scarf': false
+  # Dépendances de firebase-admin : leurs scripts sont inutiles côté serveur
+  # (configuration d'une app web Firebase, simple vérification de versions).
+  '@firebase/util': false
+  protobufjs: false

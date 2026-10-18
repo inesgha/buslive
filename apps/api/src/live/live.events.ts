@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 
+import type { VehicleGroup } from '@buslive/shared';
 import { Injectable } from '@nestjs/common';
 
 /** Un bus en direct vient de dépasser un arrêt (passage observé, anonyme). */
@@ -16,14 +17,26 @@ export interface SharingCompletedEvent {
   sessionId: string;
 }
 
+/**
+ * Les bus en direct d'une ligne viennent d'être recalculés (au plus une fois par
+ * LIVE_BROADCAST_INTERVAL_MS et par ligne, comme la diffusion Socket.io).
+ * Usage interne : « sessionIds » ne doit jamais sortir de l'API.
+ */
+export interface VehiclesUpdatedEvent {
+  lineId: string;
+  vehicles: VehicleGroup[];
+  at: Date;
+}
+
 interface LiveEventMap {
   stopPassed: [StopPassedEvent];
   sharingCompleted: [SharingCompletedEvent];
+  vehiclesUpdated: [VehiclesUpdatedEvent];
 }
 
 /**
  * Événements internes émis par le module temps réel. D'autres modules
- * (signalements, confiance) s'y abonnent : le module temps réel n'a pas besoin
+ * (signalements, confiance, alertes) s'y abonnent : le module temps réel n'a pas besoin
  * de les connaître, ce qui évite une dépendance circulaire entre modules.
  */
 @Injectable()

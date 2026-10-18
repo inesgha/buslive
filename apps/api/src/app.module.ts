@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { AlertsModule } from './alerts/alerts.module';
 import { AuthModule } from './auth/auth.module';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { validateEnv } from './config/env.schema';
+import { FavoritesModule } from './favorites/favorites.module';
 import { HealthModule } from './health/health.module';
 import { LiveModule } from './live/live.module';
 import { NetworkModule } from './network/network.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReportsModule } from './reports/reports.module';
 
@@ -28,6 +31,9 @@ import { ReportsModule } from './reports/reports.module';
     NetworkModule,
     LiveModule,
     ReportsModule,
+    FavoritesModule,
+    AlertsModule,
+    NotificationsModule,
     HealthModule,
   ],
 })

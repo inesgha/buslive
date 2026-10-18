@@ -1,7 +1,7 @@
 import { distanceMeters, type GeoPoint } from '@buslive/shared';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
@@ -41,6 +41,25 @@ export default function MapScreen() {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   // Centre choisi avec « Rechercher dans cette zone » (null = suivre l'utilisateur).
   const [manualCenter, setManualCenter] = useState<GeoPoint | null>(null);
+
+  // Arrêt demandé par un autre écran (arrêt favori de l'onglet Lignes).
+  const params = useLocalSearchParams<{
+    stopId?: string;
+    lat?: string;
+    lng?: string;
+    at?: string;
+  }>();
+  const requested = requestedStop(params);
+  const [focus, setFocus] = useState<ReturnType<typeof requestedStop>>(null);
+  if (requested && requested.key !== focus?.key) {
+    // Ajustement de l'état pendant le rendu (recommandé par React plutôt qu'un effet).
+    setFocus(requested);
+    setManualCenter(requested.center);
+    setSelectedStopId(requested.stopId);
+  }
+  useEffect(() => {
+    if (focus) mapRef.current?.animateToRegion({ ...focus.center, ...ZOOM }, 400);
+  }, [focus]);
 
   const userPosition = location.status === 'granted' ? location.position : null;
   // Centre de recherche : choix manuel, sinon position de l'utilisateur, sinon Mahdia.
@@ -194,6 +213,18 @@ export default function MapScreen() {
       </View>
     </View>
   );
+}
+
+/** Paramètres « ouvrir cet arrêt » valides, ou null. */
+function requestedStop(params: { stopId?: string; lat?: string; lng?: string; at?: string }) {
+  const latitude = Number(params.lat);
+  const longitude = Number(params.lng);
+  if (!params.stopId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return {
+    key: `${params.stopId}:${params.at ?? ''}`,
+    stopId: params.stopId,
+    center: { latitude, longitude },
+  };
 }
 
 const styles = StyleSheet.create({

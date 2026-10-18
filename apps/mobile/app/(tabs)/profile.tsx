@@ -4,10 +4,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
+import { updateProfile } from '@/api/me';
 import { useAuth } from '@/auth/AuthProvider';
+import { session } from '@/auth/session';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { NotificationsCard } from '@/components/NotificationsCard';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TrustCard } from '@/components/TrustCard';
@@ -26,6 +29,12 @@ export default function ProfileScreen() {
   async function onLocaleChange(next: Locale) {
     setLocale(next);
     await changeLocale(next);
+    // Les notifications push sont rédigées par le serveur, dans la langue du compte.
+    if (state.status === 'signedIn') {
+      void updateProfile({ locale: next })
+        .then((user) => session.updateProfile(user))
+        .catch(() => undefined);
+    }
     // Passer du français à l'arabe (ou l'inverse) change le sens d'écriture :
     // il ne s'applique qu'après un redémarrage.
     if (requestDirection(next)) {
@@ -66,6 +75,7 @@ export default function ProfileScreen() {
       </Card>
 
       {state.status === 'signedIn' ? <TrustCard /> : null}
+      {state.status === 'signedIn' ? <NotificationsCard user={state.user} /> : null}
 
       <Card style={styles.section}>
         <AppText variant="heading">{t('profile.language')}</AppText>

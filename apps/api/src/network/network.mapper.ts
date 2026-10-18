@@ -4,6 +4,7 @@ import type {
   DirectionSummary,
   GeoPoint,
   Governorate as GovernorateDto,
+  LineSummary,
   Locality as LocalityDto,
   ServiceCalendar as ServiceCalendarDto,
   StopSummary,
@@ -11,8 +12,10 @@ import type {
 
 import type {
   Governorate,
+  Line,
   LineDirection,
   Locality,
+  Operator,
   ServiceCalendar,
   Stop,
 } from '../generated/prisma/client';
@@ -50,6 +53,23 @@ export function toDirectionSummary(direction: LineDirection): DirectionSummary {
     direction: direction.direction,
     headsignFr: direction.headsignFr,
     headsignAr: direction.headsignAr,
+  };
+}
+
+/** Ligne avec son exploitant, son gouvernorat et ses sens (liste des lignes, favoris). */
+export function toLineSummary(
+  line: Line & { operator: Operator | null; governorate: Governorate; directions: LineDirection[] },
+): LineSummary {
+  return {
+    id: line.id,
+    code: line.code,
+    nameFr: line.nameFr,
+    nameAr: line.nameAr,
+    type: line.type,
+    color: line.color,
+    governorateCode: line.governorate.code,
+    operator: line.operator ? { code: line.operator.code, name: line.operator.name } : null,
+    directions: line.directions.map(toDirectionSummary),
   };
 }
 

@@ -88,6 +88,10 @@ Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
    - Santé : <http://localhost:3000/api/v1/health>
    - Santé de la base : <http://localhost:3000/api/v1/health/ready>
    - Documentation Swagger : <http://localhost:3000/api/docs>
+   - Notifications push : tant que Firebase n'est pas configuré
+     (`PUSH_PROVIDER=log`), elles s'affichent dans la console de l'API et dans
+     l'onglet Alertes de l'app. Mise en place de Firebase :
+     [apps/mobile/README.md](apps/mobile/README.md#notifications-push-firebase-cloud-messaging).
 
 6. Lancer l'app mobile sur un téléphone Android avec Expo Go (dans un second
    terminal). La configuration à faire une seule fois (adresse IP du PC,

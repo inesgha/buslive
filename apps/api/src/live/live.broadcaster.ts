@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Namespace } from 'socket.io';
 
 import type { Env } from '../config/env.schema';
+import { LiveEvents } from './live.events';
 import { LiveRegistry } from './live.registry';
 
 /** Nom de la « room » Socket.io des spectateurs d'une ligne. */
@@ -14,7 +15,8 @@ export function lineRoom(lineId: string): string {
 /**
  * Diffuse les bus en direct aux spectateurs d'une ligne, au plus une fois par
  * intervalle (LIVE_BROADCAST_INTERVAL_MS) : si 10 positions arrivent en 1 s,
- * un seul message part, avec l'état le plus récent.
+ * un seul message part, avec l'état le plus récent. Au même rythme, l'événement
+ * interne « vehiclesUpdated » prévient le moteur d'alertes (phase 8).
  */
 @Injectable()
 export class LiveBroadcaster implements OnModuleDestroy {
@@ -24,6 +26,7 @@ export class LiveBroadcaster implements OnModuleDestroy {
 
   constructor(
     private readonly registry: LiveRegistry,
+    private readonly events: LiveEvents,
     config: ConfigService<Env, true>,
   ) {
     this.intervalMs = config.get('LIVE_BROADCAST_INTERVAL_MS', { infer: true });
@@ -39,9 +42,14 @@ export class LiveBroadcaster implements OnModuleDestroy {
     if (this.pending.has(lineId)) return;
     const timer = setTimeout(() => {
       this.pending.delete(lineId);
+      const now = Date.now();
+      const groups = this.registry.vehicleGroups(lineId, now);
       this.server
         ?.to(lineRoom(lineId))
-        .emit(LIVE_EVENTS.vehicles, this.registry.lineVehicles(lineId, Date.now()));
+        .emit(LIVE_EVENTS.vehicles, this.registry.lineVehicles(lineId, now, groups));
+      if (groups.length > 0) {
+        this.events.emit('vehiclesUpdated', { lineId, vehicles: groups, at: new Date(now) });
+      }
     }, this.intervalMs);
     // Ne retient pas le processus à l'arrêt.
     timer.unref();

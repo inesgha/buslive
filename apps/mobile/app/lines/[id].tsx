@@ -20,10 +20,12 @@ import { Card } from '@/components/Card';
 import { LineReportsSection } from '@/components/LineReportsSection';
 import { StatsCard } from '@/components/StatsCard';
 import { EmptyState } from '@/components/EmptyState';
+import { FavoriteButton } from '@/components/FavoriteButton';
 import { LineBadge } from '@/components/LineBadge';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { StopMarker } from '@/components/StopMarker';
+import { lineSummaryOf } from '@/favorites/favorites';
 import { useServiceClock } from '@/hooks/useServiceClock';
 import { currentLocale } from '@/i18n';
 import { localizedHeadsign, localizedName } from '@/i18n/localized';
@@ -53,7 +55,19 @@ export default function LineDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title }} />
+      <Stack.Screen
+        options={{
+          title,
+          // Étoile « favori » dans l'en-tête, une fois la ligne chargée.
+          headerRight: line
+            ? () => (
+                <FavoriteButton
+                  target={{ kind: 'lines', id: line.id, line: lineSummaryOf(line) }}
+                />
+              )
+            : undefined,
+        }}
+      />
       <OfflineBanner />
       {isPending ? (
         <ActivityIndicator

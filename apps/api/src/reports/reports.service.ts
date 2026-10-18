@@ -27,10 +27,12 @@ import { Prisma, type Report } from '../generated/prisma/client';
 import { LiveBroadcaster } from '../live/live.broadcaster';
 import { VISIBLE_LINE, VISIBLE_STOP } from '../network/network.filters';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReportEvents } from './reports.events';
 import { reportInclude, type ReportWithRelations, toReportDto } from './reports.mapper';
 import { TrustService } from './trust.service';
 
 type Tx = Prisma.TransactionClient;
+type Decision = 'CONFIRMED' | 'REJECTED';
 
 /** Un horaire concerné peut être passé de 3 h au plus, ou à venir dans 2 h au plus. */
 const MAX_MINUTES_SINCE_SCHEDULE = 180;
@@ -65,6 +67,7 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly trust: TrustService,
     private readonly broadcaster: LiveBroadcaster,
+    private readonly events: ReportEvents,
   ) {}
 
   onModuleInit(): void {
@@ -155,8 +158,9 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const { weight } = await this.trust.weightOf(userId);
+    let decision: Decision | null;
     try {
-      await this.prisma.$transaction((tx) =>
+      decision = await this.prisma.$transaction((tx) =>
         this.addVote(tx, report, { userId, source: 'USER', value, weight }, now),
       );
     } catch (error) {
@@ -167,6 +171,7 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
       throw error;
     }
 
+    this.announce(reportId, decision, now);
     const updated = await this.load(reportId, userId);
     this.publish(updated);
     return toReportDto(updated, userId);
@@ -254,7 +259,7 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
       where: { reportId: report.id, source: 'LIVE' },
     });
     if (existing) return false;
-    await this.prisma.$transaction((tx) =>
+    const decision = await this.prisma.$transaction((tx) =>
       this.addVote(
         tx,
         report,
@@ -268,6 +273,7 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
         observation.observedAt,
       ),
     );
+    this.announce(report.id, decision, observation.observedAt);
     return true;
   }
 
@@ -284,13 +290,16 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
 
   // --- Interne ----------------------------------------------------------------
 
-  /** Enregistre un vote, met à jour les poids et décide si le seuil est atteint. */
+  /**
+   * Enregistre un vote, met à jour les poids et décide si le seuil est atteint.
+   * Renvoie la décision si CE vote a clos le signalement, sinon null.
+   */
   private async addVote(
     tx: Tx,
     report: Report,
     vote: { userId: string | null; source: 'USER' | 'LIVE'; value: VoteValue; weight: number },
     now: Date,
-  ): Promise<void> {
+  ): Promise<Decision | null> {
     await tx.reportVote.create({ data: { reportId: report.id, ...vote } });
     const confirm = vote.value === 'CONFIRM';
     const fromUser = vote.source === 'USER';
@@ -304,20 +313,17 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
       },
     });
     const decision = resolveReport(updated);
-    if (decision) await this.finalize(tx, updated, decision, now);
+    if (decision && (await this.finalize(tx, updated, decision, now))) return decision;
+    return null;
   }
 
   /**
    * Clôt le signalement et verse les points : l'auteur (+10 / −15) et chaque
    * votant (+2 s'il avait raison, −3 sinon). La mise à jour conditionnelle
    * (statut encore ACTIVE) garantit que les points ne sont versés qu'une fois.
+   * Renvoie false si le signalement était déjà clos.
    */
-  private async finalize(
-    tx: Tx,
-    report: Report,
-    decision: 'CONFIRMED' | 'REJECTED',
-    now: Date,
-  ): Promise<void> {
+  private async finalize(tx: Tx, report: Report, decision: Decision, now: Date): Promise<boolean> {
     const { count } = await tx.report.updateMany({
       where: { id: report.id, status: 'ACTIVE' },
       data: {
@@ -326,7 +332,7 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
         ...(decision === 'CONFIRMED' && { hidden: false }),
       },
     });
-    if (count !== 1) return;
+    if (count !== 1) return false;
 
     const confirmed = decision === 'CONFIRMED';
     await this.trust.award(
@@ -341,6 +347,15 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
       const right = (vote.value === 'CONFIRM') === confirmed;
       await this.trust.award(tx, vote.userId, right ? 'VOTE_CORRECT' : 'VOTE_WRONG', report.id);
     }
+    return true;
+  }
+
+  /**
+   * Prévient les autres modules (notifications) qu'un signalement est tranché.
+   * Appelé APRÈS la transaction : on n'annonce jamais une décision annulée.
+   */
+  private announce(reportId: string, decision: Decision | null, resolvedAt: Date): void {
+    if (decision) this.events.emit('reportResolved', { reportId, status: decision, resolvedAt });
   }
 
   private async checkHourlyLimit(userId: string, now: Date): Promise<void> {

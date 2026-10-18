@@ -71,7 +71,11 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   `tsc-watch`, et les fichiers se créent à la main (pas de `nest generate`).
 - **Expo SDK 58** (React Native 0.88, React 19.3). Toujours installer un module
   natif avec `npx expo install <paquet>` (dans `apps/mobile`), qui choisit la
-  version compatible avec le SDK. Vérifier avec `npx expo-doctor`.
+  version compatible avec le SDK. Vérifier avec `npx expo-doctor` (un contrôle
+  interroge l'API d'Expo : en cas de « fetch failed », relancer).
+- **firebase-admin 14** (exige Node ≥ 22). Les scripts d'installation de ses
+  dépendances `@firebase/util` et `protobufjs` sont refusés dans
+  `pnpm-workspace.yaml` (inutiles côté serveur).
 
 ## Particularités de l'app mobile (apps/mobile)
 
@@ -106,9 +110,31 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   Bus en direct : `useLineVehicles(lineIds)` (Socket.io), masqués hors ligne et
   après 2 min sans position (`isFresh`).
 - Hors ligne : cache TanStack Query persisté dans AsyncStorage (24 h), seulement
-  les clés listées dans `shouldPersistQuery` (`src/api/queryClient.ts`). Clés de
-  cache centralisées dans `queryKeys` (`src/api/network.ts`). Bandeau
-  `OfflineBanner` (NetInfo). Changer `buster` si le format en cache change.
+  les clés de `PERSISTED_KEYS` (`src/api/queryClient.ts`). Clés de cache
+  centralisées dans `queryKeys` (`src/api/network.ts`). Bandeau `OfflineBanner`
+  (NetInfo). Changer `buster` si le format en cache change. Données du compte
+  (favoris, alertes, notifications, confiance) : listées dans `PERSONAL_KEYS`,
+  effacées par `clearPersonalQueries()` à la déconnexion ou au changement de
+  compte (`AuthProvider`).
+- Notifications push (`src/notifications/`) : `push.ts` est le SEUL fichier qui
+  utilise `expo-notifications`, chargé à la demande (`import()`), jamais dans
+  Expo Go (avertissement au démarrage, et le jeton y lève une erreur sur
+  Android). `pushSupport()` : « supported » seulement sur Android hors Expo Go
+  (l'API n'envoie que par FCM ; un iPhone donnerait un jeton APNs).
+  `PushProvider` (sous `AuthProvider`) : canaux Android (mêmes identifiants que
+  `channelFor` de shared), enregistrement du téléphone à chaque démarrage,
+  ouverture de `data.url` (chemins internes seulement), langue du compte alignée
+  sur l'app. La permission se demande à la première alerte ou depuis le Profil,
+  jamais au lancement. `google-services.json` : ignoré par git, ajouté au build
+  par `app.config.ts` via la variable `GOOGLE_SERVICES_JSON` (fichier EAS).
+- Favoris (`src/favorites/`) : mise à jour optimiste (`applyFavoriteToggle`),
+  annulée en cas d'échec ; sans compte, l'étoile mène à la connexion.
+  Alertes : formulaire en fonctions pures (`src/alerts/alertForm.ts`), heures par
+  quart d'heure (`TimeStepper`, pas de sélecteur natif). Textes des
+  notifications : `renderNotification` de shared (pas de clés i18n).
+- Pluriels : pas de suffixes i18next (`_one`, `_other`) — l'arabe en a six et le
+  test de parité des clés casserait. Formuler sans pluriel, ou `arabicCount`
+  (shared) pour les textes générés.
 - Tests : `jest-expo` + Testing Library 14 (**`render` est asynchrone : `await render(…)`**).
   Simulations d'AsyncStorage, expo-secure-store, NetInfo et des icônes Ionicons
   dans `jest.setup.cjs`.
@@ -206,7 +232,33 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   - pas de texte libre ; la position de l'auteur n'est pas gardée (seulement sa
     distance à l'arrêt), sauf pour « arrêt déplacé » (position proposée) ;
   - statistiques : `computeLineStats` (`@buslive/shared/stats.ts`), pas de
-    pourcentage sous 10 passages observés.
+    pourcentage sous 10 passages observés ;
+  - `ReportEvents` (`reportResolved`) est émis APRÈS la transaction de décision
+    (`announce`) : on n'annonce jamais une décision annulée.
+- **Favoris, alertes, notifications** (`src/favorites/`, `src/alerts/`,
+  `src/notifications/`) :
+  - routes sous `/me/…` ; favoris idempotents (PUT / DELETE, 204) ;
+  - règles pures dans `@buslive/shared/alerts.ts` (`isAlertActive`,
+    `approachingEta`, `incidentConcernsAlert`) et textes fr/ar dans
+    `notifications.ts` (`renderNotification`, `channelFor`, `notificationUrl`) ;
+  - `AlertEngine` écoute `LiveEvents.vehiclesUpdated` (émis par `LiveBroadcaster`,
+    au rythme de la diffusion) et `ReportEvents.reportResolved`. Sens des
+    dépendances : notifications → alerts, live, reports (jamais l'inverse) ;
+  - anti-spam : `AlertsService.claimApproach` (mise à jour conditionnelle, 30 min)
+    et contrainte unique `(user_id, dedupe_key)` sur `notifications` (P2002 = déjà
+    envoyée) ;
+  - `AlertsService.watchedForLine` : cache mémoire par ligne (60 s), vidé à chaque
+    modification d'alerte ;
+  - envoi : `PUSH_SENDER` (`log` par défaut, `fcm`, `memory` dans les tests e2e :
+    `app.get(PUSH_SENDER)` donne le `MemoryPushSender`). firebase-admin est chargé
+    par `import()` au premier envoi FCM seulement ;
+  - la migration `favorites_alerts_notifications` contient deux contraintes CHECK
+    écrites à la main (jours, plage horaire) : Prisma ne les gère pas et ne les
+    voit pas dans `migrate diff`.
+- Avertissement `pg` « client.query() when the client is already executing a
+  query » pendant les tests e2e : il vient de Prisma (requêtes parallèles dans une
+  transaction implicite), sans effet avec `pg` 8. Ne pas passer à `pg` 9 avant que
+  Prisma le gère.
 - `@buslive/shared` : `departures.ts` est séparé de `network.ts` pour éviter une
   dépendance circulaire avec `reports.ts` (avec zod, un cycle donne des schémas
   `undefined` au chargement).

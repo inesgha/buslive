@@ -2,7 +2,7 @@ import i18n from 'i18next';
 
 import { resources } from '@/i18n';
 
-import { formatDistance, formatEta, formatPassage } from './format';
+import { formatDistance, formatEta, formatNotificationTime, formatPassage } from './format';
 
 beforeAll(async () => {
   await i18n.init({ resources, lng: 'fr', interpolation: { escapeValue: false } });
@@ -65,5 +65,13 @@ describe('formatEta', () => {
     expect(formatEta(4, i18n.t)).toBe('dans 4 min');
     await i18n.changeLanguage('ar');
     expect(formatEta(4, i18n.t)).toBe('بعد 4 د');
+  });
+});
+
+describe('formatNotificationTime', () => {
+  it('donne l’heure de Tunis, et la date si ce n’est pas aujourd’hui', () => {
+    // 06:32 UTC = 07:32 à Tunis.
+    expect(formatNotificationTime('2026-10-19T06:32:00.000Z', monday0750)).toBe('07:32');
+    expect(formatNotificationTime('2026-10-18T17:05:00.000Z', monday0750)).toBe('18/10 · 18:05');
   });
 });

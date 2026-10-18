@@ -16,6 +16,11 @@ apps/api/src/generated/
 .env
 .env.*
 !.env.example
+# Clés Firebase (phase 8) : compte de service de l'API, configuration Android de l'app
+secrets/
+*service-account*.json
+google-services.json
+GoogleService-Info.plist
 
 # Expo / React Native (phase 4)
 .expo/

@@ -44,8 +44,31 @@ export const envSchema = z
     // --- Temps réel ---
     // Délai minimal entre deux diffusions des bus en direct d'une même ligne (ms).
     LIVE_BROADCAST_INTERVAL_MS: z.coerce.number().int().min(10).default(3000),
+
+    // --- Notifications push ---
+    // fcm : envoi réel par Firebase Cloud Messaging ;
+    // log : la notification est seulement écrite dans la console (développement, sans Firebase) ;
+    // memory : gardée en mémoire (tests automatiques).
+    PUSH_PROVIDER: z.enum(['fcm', 'log', 'memory']).default('log'),
+    // Chemin du fichier JSON de la clé du compte de service Firebase (secret, jamais versionné).
+    // Nom standard des bibliothèques Google : les hébergeurs savent le fournir.
+    GOOGLE_APPLICATION_CREDENTIALS: z.string().trim().min(1).optional(),
   })
   .superRefine((env, ctx) => {
+    if (env.PUSH_PROVIDER === 'fcm' && !env.GOOGLE_APPLICATION_CREDENTIALS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GOOGLE_APPLICATION_CREDENTIALS'],
+        message: 'Obligatoire avec PUSH_PROVIDER=fcm (chemin de la clé du compte de service).',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.PUSH_PROVIDER === 'memory') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PUSH_PROVIDER'],
+        message: 'PUSH_PROVIDER=memory est réservé aux tests.',
+      });
+    }
     // Garde-fou : la valeur d'exemple ne doit jamais partir en production.
     if (env.NODE_ENV === 'production' && env.JWT_ACCESS_SECRET.includes('change-moi')) {
       ctx.addIssue({
