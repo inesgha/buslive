@@ -1,13 +1,15 @@
 import { distanceMeters, type GeoPoint } from '@buslive/shared';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { router } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 
 import { fetchNearbyStops, queryKeys } from '@/api/network';
 import { AppText } from '@/components/AppText';
+import { BusMarker } from '@/components/BusMarker';
 import { NearbyStopRow } from '@/components/NearbyStopRow';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { StopMarker } from '@/components/StopMarker';
@@ -15,6 +17,8 @@ import { StopPassagesPanel } from '@/components/StopPassagesPanel';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { currentLocale } from '@/i18n';
 import { localizedName } from '@/i18n/localized';
+import { useShare } from '@/live/ShareProvider';
+import { useLineVehicles } from '@/live/useLineVehicles';
 import { darkMapStyle } from '@/theme/mapStyle';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';
@@ -56,9 +60,19 @@ export default function MapScreen() {
     // Pendant une nouvelle recherche, on garde les arrêts affichés.
     placeholderData: keepPreviousData,
   });
-  const stops = nearby.data ?? [];
+  // useMemo : « ?? [] » créerait un nouveau tableau à chaque affichage.
+  const stops = useMemo(() => nearby.data ?? [], [nearby.data]);
   const selectedStop = stops.find((stop) => stop.id === selectedStopId) ?? null;
   const canSearchHere = distanceMeters(mapCenter, searchCenter) > SEARCH_AGAIN_METERS;
+
+  // Bus en direct des lignes qui desservent les arrêts affichés.
+  const lineColors = useMemo(
+    () =>
+      new Map(stops.flatMap((stop) => stop.lines.map((line) => [line.id, line.color] as const))),
+    [stops],
+  );
+  const vehicles = useLineVehicles([...lineColors.keys()]);
+  const { status: share } = useShare();
 
   function onRegionChangeComplete(region: Region) {
     setMapCenter({ latitude: region.latitude, longitude: region.longitude });
@@ -92,7 +106,35 @@ export default function MapScreen() {
               <StopMarker selected={stop.id === selectedStopId} />
             </Marker>
           ))}
+          {vehicles.map((vehicle) => (
+            <Marker
+              key={vehicle.id}
+              coordinate={{ latitude: vehicle.latitude, longitude: vehicle.longitude }}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={false}
+            >
+              <BusMarker color={lineColors.get(vehicle.lineId) ?? colors.text} />
+            </Marker>
+          ))}
         </MapView>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/share')}
+          style={[
+            styles.shareButton,
+            { backgroundColor: share.kind === 'sharing' ? colors.live : colors.accent },
+          ]}
+        >
+          <Ionicons
+            name={share.kind === 'sharing' ? 'radio' : 'bus'}
+            size={18}
+            color={share.kind === 'sharing' ? colors.card : colors.onAccent}
+          />
+          <AppText weight="semiBold" color={share.kind === 'sharing' ? 'card' : 'onAccent'}>
+            {share.kind === 'sharing' ? t('share.buttonActive') : t('share.button')}
+          </AppText>
+        </Pressable>
 
         {canSearchHere ? (
           <Pressable
@@ -169,6 +211,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     elevation: 3,
+  },
+  shareButton: {
+    position: 'absolute',
+    bottom: spacing.md,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.pill,
+    elevation: 4,
   },
   panel: {
     maxHeight: '45%',

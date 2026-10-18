@@ -97,6 +97,14 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   à configurer pour les builds de production). Marqueurs personnalisés avec
   `tracksViewChanges={false}` (et la sélection dans la `key` pour les redessiner).
   Localisation : `expo-location`, permission « pendant l'utilisation » seulement.
+- Partage « Je suis dans le bus » (`src/live/`) : la tâche d'arrière-plan
+  (`backgroundTask.ts`, importée dans `app/_layout.tsx`) n'existe pas dans Expo Go
+  sur Android → mode « app ouverte » (`ShareProvider`, `isExpoGo()`). Build de
+  développement : `eas build --profile development --platform android` (fait par
+  l'utilisatrice, avec son compte Expo). Ne jamais retirer `share.disclosure`
+  (information exigée par Google Play avant la permission « Toujours »).
+  Bus en direct : `useLineVehicles(lineIds)` (Socket.io), masqués hors ligne et
+  après 2 min sans position (`isFresh`).
 - Hors ligne : cache TanStack Query persisté dans AsyncStorage (24 h), seulement
   les clés listées dans `shouldPersistQuery` (`src/api/queryClient.ts`). Clés de
   cache centralisées dans `queryKeys` (`src/api/network.ts`). Bandeau
@@ -157,7 +165,24 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   l'heure locale du serveur ou du téléphone pour les horaires.
 - **Prochains passages** : renvoyés en heures ABSOLUES (`serviceDate` +
   `passingMinutes`) ; le compte à rebours est calculé côté app (reste juste depuis
-  le cache hors ligne). Champ `live: null` réservé au temps réel (phase 6).
+  le cache hors ligne). Les bus en direct sont dans une liste séparée,
+  `liveArrivals` (on ne devine pas quel horaire correspond à quel bus réel).
+- **Temps réel** (`src/live/`) :
+  - partage par REST (`POST /live/sessions`, `/live/sessions/:id/positions`,
+    `DELETE /live/sessions/:id`), diffusion par Socket.io (espace `/live`, rooms
+    `line:<id>`, événements `watch:line` / `vehicles`, au plus toutes les
+    `LIVE_BROADCAST_INTERVAL_MS`) ;
+  - règles dans `LIVE_RULES` (`@buslive/shared/live.ts`) : précision ≤ 100 m,
+    vitesse ≤ 120 km/h, ≤ 300 m du tracé, ≥ 5 s entre positions, fin auto
+    (terminus, 10 min d'inactivité, 3 h) ;
+  - géométrie pure dans `@buslive/shared/route.ts` (projection sur le tracé,
+    progression en minutes, ETA) et regroupement des passagers en bus (`groupIntoVehicles`) ;
+  - registre EN MÉMOIRE (`LiveRegistry`) : pas d'historique de trajet en base,
+    seulement la session et sa dernière position (vie privée). Au démarrage,
+    les sessions restées ACTIVE sont closes. Plusieurs instances → Redis (phase 11) ;
+  - la passerelle Socket.io est `@Public()` (sinon le guard JWT global s'appliquerait) ;
+  - `ConfiguredIoAdapter` applique CORS_ORIGINS à Socket.io ;
+  - aucune information sur les passagers n'est diffusée (testé).
 - **Seed** (`pnpm --filter @buslive/api db:seed`) : idempotent (upsert par code).
   Les 24 gouvernorats sont des données réelles ; `prisma/seed/data/mahdia-demo.ts`
   contient des **données de test inventées** (lignes, horaires) à remplacer. En

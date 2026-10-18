@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { validateEnv } from './config/env.schema';
 import { HealthModule } from './health/health.module';
+import { LiveModule } from './live/live.module';
 import { NetworkModule } from './network/network.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     RateLimitModule,
     AuthModule,
     NetworkModule,
+    LiveModule,
     HealthModule,
   ],
 })

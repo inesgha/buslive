@@ -111,5 +111,39 @@
   },
   "offline": {
     "banner": "Hors ligne — horaires théoriques"
+  },
+  "share": {
+    "title": "Je suis dans le bus",
+    "button": "Je suis dans le bus",
+    "buttonActive": "Partage en cours",
+    "inThisBus": "Je suis dans ce bus",
+    "chooseLine": "Dans quelle ligne es-tu ?",
+    "chooseDirection": "Dans quel sens ?",
+    "disclosure": "Pendant le partage, BusLive utilise ta position, même quand l’application est fermée, pour montrer le bus aux autres passagers. Ton nom n’est jamais affiché et le partage s’arrête tout seul au terminus.",
+    "start": "Partager la position du bus",
+    "stop": "Arrêter le partage",
+    "signInRequired": "Connecte-toi pour partager la position du bus.",
+    "sharing": "Tu partages la position du bus",
+    "sharers": "Passagers qui partagent ce bus : {{count}}",
+    "waitingFirstPosition": "Recherche de ta position…",
+    "offRoute": "Tu sembles loin du parcours de cette ligne : ta position n’est pas affichée.",
+    "foregroundOnlyExpoGo": "Garde l’application ouverte : le partage en arrière-plan n’est pas disponible dans Expo Go.",
+    "foregroundOnlyPermission": "Garde l’application ouverte, ou autorise la position « Toujours » pour partager quand elle est fermée.",
+    "notificationTitle": "BusLive partage la position du bus",
+    "notificationBody": "Touche pour ouvrir BusLive et arrêter le partage.",
+    "permissionDenied": "Sans accès à ta position, impossible de partager le bus.",
+    "error": "Impossible de démarrer le partage.",
+    "close": "Fermer",
+    "ended": {
+      "USER": "Partage arrêté. Merci !",
+      "TERMINUS": "Arrivé au terminus : partage terminé. Merci !",
+      "INACTIVE": "Partage arrêté : plus aucune position reçue.",
+      "MAX_DURATION": "Partage arrêté après 3 heures.",
+      "REPLACED": "Ce partage a été remplacé par un nouveau."
+    }
+  },
+  "live": {
+    "label": "En direct",
+    "eta": "En direct · {{eta}}"
   }
 }

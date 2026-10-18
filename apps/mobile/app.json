@@ -50,8 +50,11 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "BusLive utilise ta position pour afficher les arrêts et les bus proches de toi.",
+          "locationAlwaysAndWhenInUsePermission": "BusLive utilise ta position en arrière-plan uniquement pendant que tu partages la position d'un bus.",
           "locationAlwaysPermission": false,
-          "isAndroidBackgroundLocationEnabled": false
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ]
     ]

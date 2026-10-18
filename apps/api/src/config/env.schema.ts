@@ -40,6 +40,10 @@ export const envSchema = z
     // Nombre de requêtes autorisées par adresse IP et par fenêtre, et durée de la fenêtre.
     RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
     RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+
+    // --- Temps réel ---
+    // Délai minimal entre deux diffusions des bus en direct d'une même ligne (ms).
+    LIVE_BROADCAST_INTERVAL_MS: z.coerce.number().int().min(10).default(3000),
   })
   .superRefine((env, ctx) => {
     // Garde-fou : la valeur d'exemple ne doit jamais partir en production.

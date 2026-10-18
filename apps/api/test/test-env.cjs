@@ -24,6 +24,8 @@ function applyTestEnv() {
   // Limite de tentatives élevée par défaut : le test dédié à la limitation
   // fixe sa propre limite (voir auth.e2e-test.ts).
   process.env.RATE_LIMIT_MAX = '1000';
+  // Diffusion des bus en direct quasi immédiate : les tests n'attendent pas 3 s.
+  process.env.LIVE_BROADCAST_INTERVAL_MS = '50';
   return url;
 }
 

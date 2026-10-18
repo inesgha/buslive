@@ -62,6 +62,26 @@ Governorate ──< Locality
 Un horaire = un départ du terminus (minutes depuis minuit) + un calendrier
 (jours, période, priorité). L'heure à chaque arrêt = départ + `minutesFromStart`.
 
+## Temps réel (« Je suis dans le bus »)
+
+| Route / événement                             | Accès    | Rôle                                           |
+| --------------------------------------------- | -------- | ---------------------------------------------- |
+| `POST /api/v1/live/sessions`                  | connecté | Commencer à partager `{ lineId, directionId }` |
+| `POST /api/v1/live/sessions/:id/positions`    | connecté | Lot de positions (20 au plus)                  |
+| `DELETE /api/v1/live/sessions/:id`            | connecté | Arrêter le partage                             |
+| `GET /api/v1/live/lines/:id/vehicles`         | public   | Bus en direct d'une ligne                      |
+| Socket.io `/live` : `watch:line` → `vehicles` | public   | Suivre les bus d'une ligne en temps réel       |
+
+- Chaque position est vérifiée (`LIVE_RULES` dans `@buslive/shared`) : précision,
+  Tunisie, vitesse plausible, distance au tracé, intervalle minimal.
+- Les passagers proches sur le même sens forment **un seul bus** (position
+  moyenne). Les bus sont anonymes.
+- **Vie privée** : les positions restent en mémoire ; la base ne garde que la
+  session et sa dernière position (pas de trajet).
+- Le partage s'arrête seul : terminus, 10 min sans position, 3 h au maximum.
+- Les arrivées en direct à un arrêt sont dans `liveArrivals` de
+  `GET /stops/:id/departures`.
+
 ## Authentification
 
 | Route                        | Accès          | Rôle                                |
@@ -114,6 +134,7 @@ src/
   common/            ZodValidationPipe, zodToOpenApi, limitation des requêtes
   prisma/            PrismaService (connexion via @prisma/adapter-pg)
   auth/              inscription, connexion, jetons, guards et décorateurs
+  live/              partage de position, registre des bus en direct, Socket.io
   network/           gouvernorats, lignes, arrêts, horaires (lecture)
   users/             accès aux utilisateurs
   health/            routes de santé (Terminus) + indicateur PostGIS

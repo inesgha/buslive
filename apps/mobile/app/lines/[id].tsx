@@ -1,11 +1,12 @@
 import {
   departuresForDate,
+  etaMinutes,
   type LineDetail,
   minutesToTime,
   upcomingPassages,
 } from '@buslive/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
@@ -13,6 +14,8 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 
 import { fetchLine, queryKeys } from '@/api/network';
 import { AppText } from '@/components/AppText';
+import { BusMarker } from '@/components/BusMarker';
+import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { LineBadge } from '@/components/LineBadge';
@@ -22,7 +25,8 @@ import { StopMarker } from '@/components/StopMarker';
 import { useServiceClock } from '@/hooks/useServiceClock';
 import { currentLocale } from '@/i18n';
 import { localizedHeadsign, localizedName } from '@/i18n/localized';
-import { formatPassage } from '@/time/format';
+import { useLineVehicles } from '@/live/useLineVehicles';
+import { formatEta, formatPassage } from '@/time/format';
 import { darkMapStyle } from '@/theme/mapStyle';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';
@@ -96,6 +100,16 @@ function LineContent({ line }: { line: LineDetail }) {
       ),
     [direction, line.calendars, clock],
   );
+  // Bus en direct de cette ligne (sens affiché uniquement).
+  const vehicles = useLineVehicles([line.id]).filter((v) => v.directionId === direction?.id);
+  /** Arrivée en direct la plus proche à chaque arrêt (null si aucun bus en approche). */
+  const liveEtaByStop = (direction?.stops ?? []).map((lineStop) => {
+    const etas = vehicles
+      .map((vehicle) => etaMinutes(vehicle.progressMinutes, lineStop.minutesFromStart))
+      .filter((eta): eta is number => eta !== null);
+    return etas.length > 0 ? Math.min(...etas) : null;
+  });
+
   const todayDepartures = useMemo(
     () => departuresForDate(direction?.departures ?? [], line.calendars, clock.isoDate),
     [direction, line.calendars, clock.isoDate],
@@ -151,20 +165,43 @@ function LineContent({ line }: { line: LineDetail }) {
               <StopMarker />
             </Marker>
           ))}
+          {vehicles.map((vehicle) => (
+            <Marker
+              key={vehicle.id}
+              coordinate={{ latitude: vehicle.latitude, longitude: vehicle.longitude }}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={false}
+            >
+              <BusMarker color={line.color} />
+            </Marker>
+          ))}
         </MapView>
       </View>
+
+      <Button
+        label={t('share.inThisBus')}
+        onPress={() => router.push({ pathname: '/share', params: { lineId: line.id } })}
+      />
 
       <Card style={styles.section}>
         <AppText variant="heading">{t('lineDetail.stops')}</AppText>
         {direction.stops.map((lineStop, index) => {
           const next = nextByStop[index];
+          const liveEta = liveEtaByStop[index] ?? null;
           return (
             <View key={`${lineStop.sequence}`} style={styles.stopRow}>
               <View style={[styles.dot, { backgroundColor: line.color }]} />
               <AppText style={styles.fill}>{localizedName(lineStop.stop, locale)}</AppText>
-              <AppText variant="caption" weight="medium" color={next ? 'text' : 'textMuted'}>
-                {next ? formatPassage(next, clock, t) : '—'}
-              </AppText>
+              {liveEta !== null ? (
+                // Bus en direct en approche : prioritaire sur l'horaire théorique.
+                <AppText variant="caption" weight="semiBold" color="live">
+                  {t('live.eta', { eta: formatEta(liveEta, t) })}
+                </AppText>
+              ) : (
+                <AppText variant="caption" weight="medium" color={next ? 'text' : 'textMuted'}>
+                  {next ? formatPassage(next, clock, t) : '—'}
+                </AppText>
+              )}
             </View>
           );
         })}

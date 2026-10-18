@@ -40,6 +40,57 @@ pnpm dev:mobile   # Expo (dans un second terminal) → scanner le QR code avec E
 
 Raccourcis dans le terminal Expo : `r` recharge l'app, `j` ouvre le débogueur.
 
+## Build de développement (EAS) : nécessaire pour le partage en arrière-plan
+
+Dans Expo Go, Android ne permet **pas** la localisation en arrière-plan : le
+partage « Je suis dans le bus » ne marche qu'app ouverte (l'app le détecte et
+le signale). Pour l'arrière-plan, il faut **ta propre version de l'app** (un
+APK), construite par EAS Build dans le cloud. Elle remplace Expo Go pour
+BusLive ; le code JavaScript reste servi par ton PC (`pnpm dev:mobile`), comme avec Expo Go.
+
+### Une seule fois
+
+1. Créer un compte gratuit sur <https://expo.dev/signup>.
+2. Installer l'outil EAS : `npm install -g eas-cli`.
+3. **Commiter tes changements** (EAS envoie le contenu suivi par git).
+4. Dans `apps/mobile` :
+
+   ```bash
+   eas login
+   eas init                                         # relie le projet à ton compte (ajoute un identifiant dans app.json)
+   eas build --profile development --platform android
+   ```
+
+   Accepter la création de la clé de signature Android (gardée par Expo).
+   L'offre gratuite peut faire attendre le build plusieurs dizaines de minutes.
+
+5. À la fin, ouvrir le lien (ou scanner le QR code) sur le téléphone pour
+   installer l'APK. Android demandera d'autoriser l'installation d'applications
+   depuis le navigateur.
+
+### Ensuite
+
+```bash
+pnpm dev:mobile    # puis ouvrir l'app « BusLive » (dev) sur le téléphone et choisir le serveur
+```
+
+Un nouveau build n'est nécessaire que si l'on ajoute un module **natif**
+(`npx expo install …` d'un paquet avec du code Android) ou si l'on change
+`app.json` (permissions, plugins). Pour du code JavaScript, le rechargement suffit.
+
+## Partage « Je suis dans le bus »
+
+- **Arrière-plan** (build EAS + permission « Toujours ») : `src/live/backgroundTask.ts`
+  envoie les positions par lots, même app fermée, avec la notification
+  permanente exigée par Android.
+- **App ouverte** (Expo Go, ou permission « Toujours » refusée) : `ShareProvider`
+  suit la position et garde l'écran allumé.
+- Les positions partent en **REST** (`POST /live/sessions/:id/positions`), plus
+  fiable en arrière-plan qu'un socket. Les bus en direct arrivent par
+  **Socket.io** (`src/live/socket.ts`, hook `useLineVehicles`).
+- Le texte affiché avant la demande de position en arrière-plan
+  (`share.disclosure`) est une **obligation de Google Play** : ne pas le retirer.
+
 ## Organisation
 
 ```
@@ -47,7 +98,8 @@ app/                      écrans (expo-router : un fichier = un écran)
   _layout.tsx             racine : police, langue, thème, session, navigation
   (tabs)/                 barre d'onglets : Carte · Lignes · Signaler · Alertes · Profil
     index.tsx             carte : arrêts proches, prochains passages
-  lines/[id].tsx          détail d'une ligne : tracé, arrêts, horaires du jour
+  lines/[id].tsx          détail d'une ligne : tracé, bus en direct, arrêts, horaires du jour
+  share.tsx               « Je suis dans le bus » (fenêtre modale)
   auth/login.tsx          connexion (fenêtre modale)
   auth/register.tsx       inscription (fenêtre modale)
 src/
@@ -56,6 +108,7 @@ src/
   components/             composants d'interface réutilisables
   hooks/                  heure de Tunis, position, état du réseau
   i18n/                   traductions fr/ar, sens d'écriture (RTL)
+  live/                   partage de position (arrière-plan / app ouverte), Socket.io, bus en direct
   storage/                préférences (langue, thème)
   theme/                  couleurs, police, contrastes, style de carte sombre
   time/                   formatage des distances et des heures (« dans 5 min »)

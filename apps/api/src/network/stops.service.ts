@@ -8,6 +8,7 @@ import {
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { LiveService } from '../live/live.service';
 import { VISIBLE_STOP } from './network.filters';
 import { compareLineCodes, toDirectionSummary, toServiceCalendar } from './network.mapper';
 
@@ -27,7 +28,10 @@ interface NearbyRow {
 /** Arrêts proches et prochains passages (écran Carte). */
 @Injectable()
 export class StopsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly live: LiveService,
+  ) {}
 
   /**
    * Arrêts actifs dans un rayon autour d'un point, du plus proche au plus loin.
@@ -141,15 +145,27 @@ export class StopsService {
       { limit },
     );
 
+    // Bus en direct qui approchent (toujours calculés à l'instant présent, même
+    // si « at » est fourni pour les horaires).
+    const liveArrivals = this.live.arrivalsAtStop(
+      stop.lineStops.map(({ minutesFromStart, direction }) => ({
+        lineId: direction.line.id,
+        directionId: direction.id,
+        minutesFromStart,
+        line: direction.line,
+        direction: toDirectionSummary(direction),
+      })),
+    );
+
     return {
       stopId: stop.id,
       generatedAt: at.toISOString(),
+      liveArrivals,
       passages: passages.map(({ key: direction, serviceDate, passingMinutes }) => ({
         line: direction.line,
         direction: toDirectionSummary(direction),
         serviceDate,
         passingMinutes,
-        live: null,
       })),
     };
   }

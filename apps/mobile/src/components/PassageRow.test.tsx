@@ -24,7 +24,6 @@ const passage: StopPassage = {
   },
   serviceDate: '2026-10-19',
   passingMinutes: 9 * 60,
-  live: null,
 };
 
 beforeAll(async () => {

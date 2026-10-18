@@ -1,18 +1,26 @@
-import { LOCALES, ROLES } from '@buslive/shared';
+import {
+  DIRECTIONS,
+  LINE_TYPES,
+  LiveSessionEndReasonSchema,
+  LOCALES,
+  ROLES,
+} from '@buslive/shared';
 
-import { Locale, Role } from '../generated/prisma/enums';
+import { Direction, LineType, LiveSessionEndReason, Locale, Role } from '../generated/prisma/enums';
 
 /**
- * Les rôles et les langues existent à deux endroits : le schéma Prisma (base de
- * données) et @buslive/shared (validation, apps). Ce test échoue si l'un des
- * deux est modifié sans l'autre.
+ * Ces listes existent à deux endroits : le schéma Prisma (base de données) et
+ * @buslive/shared (validation, apps). Ce test échoue si l'un des deux est
+ * modifié sans l'autre.
  */
 describe('Synchronisation des enums Prisma ↔ @buslive/shared', () => {
-  it('Role', () => {
-    expect(Object.values(Role)).toEqual([...ROLES]);
-  });
-
-  it('Locale', () => {
-    expect(Object.values(Locale)).toEqual([...LOCALES]);
+  it.each([
+    ['Role', Role, ROLES],
+    ['Locale', Locale, LOCALES],
+    ['LineType', LineType, LINE_TYPES],
+    ['Direction', Direction, DIRECTIONS],
+    ['LiveSessionEndReason', LiveSessionEndReason, LiveSessionEndReasonSchema.options],
+  ] as const)('%s', (_name, prismaEnum, sharedValues) => {
+    expect(Object.values(prismaEnum)).toEqual([...sharedValues]);
   });
 });

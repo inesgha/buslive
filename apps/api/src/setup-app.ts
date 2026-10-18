@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 
+import { ConfiguredIoAdapter } from './common/io-adapter';
 import type { Env } from './config/env.schema';
 
 /** Préfixe commun à toutes les routes : /api/v1/... */
@@ -20,7 +21,10 @@ export function setupApp(app: INestApplication): void {
 
   // Seules les origines listées dans CORS_ORIGINS peuvent appeler l'API depuis
   // un navigateur. L'app mobile native n'est pas concernée par CORS.
-  app.enableCors({ origin: config.get('CORS_ORIGINS', { infer: true }) });
+  const corsOrigins = config.get('CORS_ORIGINS', { infer: true });
+  app.enableCors({ origin: corsOrigins });
+  // Socket.io (bus en direct, espace « /live ») : mêmes origines autorisées.
+  app.useWebSocketAdapter(new ConfiguredIoAdapter(app, corsOrigins));
 
   // Routes versionnées : /api/v1/health. Une future v2 pourra cohabiter avec
   // la v1 pour ne pas casser les anciennes versions de l'app mobile.

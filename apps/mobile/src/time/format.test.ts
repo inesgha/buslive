@@ -2,7 +2,7 @@ import i18n from 'i18next';
 
 import { resources } from '@/i18n';
 
-import { formatDistance, formatPassage } from './format';
+import { formatDistance, formatEta, formatPassage } from './format';
 
 beforeAll(async () => {
   await i18n.init({ resources, lng: 'fr', interpolation: { escapeValue: false } });
@@ -55,5 +55,15 @@ describe('formatPassage', () => {
         i18n.t,
       ),
     ).toBe('على الساعة 14:30');
+  });
+});
+
+describe('formatEta', () => {
+  it('affiche « Maintenant » à l’arrêt et « dans N min » sinon', async () => {
+    await i18n.changeLanguage('fr');
+    expect(formatEta(0, i18n.t)).toBe('Maintenant');
+    expect(formatEta(4, i18n.t)).toBe('dans 4 min');
+    await i18n.changeLanguage('ar');
+    expect(formatEta(4, i18n.t)).toBe('بعد 4 د');
   });
 });

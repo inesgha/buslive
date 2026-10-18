@@ -47,6 +47,7 @@ model User {
   refreshTokens RefreshToken[]
   proposedLines Line[]
   proposedStops Stop[]
+  liveSessions  LiveSession[]
 
   @@map("users")
 }
@@ -161,10 +162,11 @@ model Line {
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  governorate Governorate     @relation(fields: [governorateId], references: [id], onDelete: Restrict)
-  operator    Operator?       @relation(fields: [operatorId], references: [id], onDelete: SetNull)
-  proposedBy  User?           @relation(fields: [proposedById], references: [id], onDelete: SetNull)
-  directions  LineDirection[]
+  governorate  Governorate     @relation(fields: [governorateId], references: [id], onDelete: Restrict)
+  operator     Operator?       @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  proposedBy   User?           @relation(fields: [proposedById], references: [id], onDelete: SetNull)
+  directions   LineDirection[]
+  liveSessions LiveSession[]
 
   @@unique([governorateId, code])
   @@index([status])
@@ -182,9 +184,10 @@ model LineDirection {
   /// Tracé du parcours (PostGIS). Écrit et lu en SQL brut : Prisma ne gère pas ce type.
   shape      Unsupported("geography(LineString, 4326)")?
 
-  line       Line        @relation(fields: [lineId], references: [id], onDelete: Cascade)
-  stops      LineStop[]
-  departures Departure[]
+  line         Line          @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  stops        LineStop[]
+  departures   Departure[]
+  liveSessions LiveSession[]
 
   @@unique([lineId, direction])
   @@map("line_directions")
@@ -275,4 +278,48 @@ model Departure {
   @@unique([directionId, calendarId, departureMinutes])
   @@index([calendarId])
   @@map("departures")
+}
+
+// ---------------------------------------------------------------------------
+// Partage de position « Je suis dans le bus » (phase 6)
+// ---------------------------------------------------------------------------
+
+enum LiveSessionStatus {
+  ACTIVE
+  ENDED
+}
+
+/// Pourquoi un partage s'est arrêté. Doit rester identique à LiveSessionEndReasonSchema (@buslive/shared).
+enum LiveSessionEndReason {
+  USER
+  TERMINUS
+  INACTIVE
+  MAX_DURATION
+  REPLACED
+}
+
+/// Un partage de position par un passager. Vie privée : on ne garde PAS
+/// l'historique du trajet, seulement la dernière position acceptée.
+model LiveSession {
+  id                String                @id @default(uuid()) @db.Uuid
+  userId            String                @map("user_id") @db.Uuid
+  lineId            String                @map("line_id") @db.Uuid
+  directionId       String                @map("direction_id") @db.Uuid
+  status            LiveSessionStatus     @default(ACTIVE)
+  endReason         LiveSessionEndReason? @map("end_reason")
+  startedAt         DateTime              @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt           DateTime?             @map("ended_at") @db.Timestamptz(3)
+  lastLatitude      Float?                @map("last_latitude")
+  lastLongitude     Float?                @map("last_longitude")
+  lastPositionAt    DateTime?             @map("last_position_at") @db.Timestamptz(3)
+  acceptedPositions Int                   @default(0) @map("accepted_positions")
+  rejectedPositions Int                   @default(0) @map("rejected_positions")
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  line      Line          @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  direction LineDirection @relation(fields: [directionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([lineId, status])
+  @@map("live_sessions")
 }

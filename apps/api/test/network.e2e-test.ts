@@ -304,14 +304,20 @@ describe('Réseau (e2e)', () => {
 
     it('calcule les prochains passages (lundi 07:50, Ksour Essef – Centre)', async () => {
       // 06:50 UTC = 07:50 à Tunis.
-      const { passages } = await departuresAt('ksour-essef-centre', '2026-10-19T06:50:00Z', 4);
+      const { passages, liveArrivals } = await departuresAt(
+        'ksour-essef-centre',
+        '2026-10-19T06:50:00Z',
+        4,
+      );
+      // Personne ne partage sa position dans ce test : aucune arrivée en direct.
+      expect(liveArrivals).toEqual([]);
       expect(passages.map((p) => minutesToTime(p.passingMinutes))).toEqual([
         '09:00', // ligne 10 vers Ksour Essef (départ 08:30 + 30 min) et…
         '09:00', // … ligne 11 vers Salakta (départ 09:00, terminus)
         '09:19', // ligne 10 vers Mahdia (départ 09:15 + 4 min)
         '09:43', // ligne 11 vers Ksour Essef (départ 09:30 + 13 min)
       ]);
-      expect(passages.every((p) => p.serviceDate === '2026-10-19' && p.live === null)).toBe(true);
+      expect(passages.every((p) => p.serviceDate === '2026-10-19')).toBe(true);
       expect(new Set(passages.map((p) => p.line.code))).toEqual(new Set(['10', '11']));
     });
 

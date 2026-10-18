@@ -36,3 +36,8 @@ export function formatPassage(
   const time = minutesToTime(passage.passingMinutes);
   return calendarDate > clock.isoDate ? t('time.tomorrowAt', { time }) : t('time.at', { time });
 }
+
+/** Temps d'arrivée EN DIRECT : 0 → « Maintenant », 4 → « dans 4 min ». */
+export function formatEta(etaMinutes: number, t: TFunction): string {
+  return etaMinutes < 1 ? t('time.now') : t('time.inMinutes', { count: etaMinutes });
+}

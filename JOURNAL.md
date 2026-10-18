@@ -798,3 +798,171 @@ feat(map): carte des arrêts proches, prochains passages et détail des lignes
 - écran Détail d'une ligne : tracé, arrêts et prochain passage, départs du jour
 - cache hors ligne persistant (24 h) et bandeau « horaires théoriques »
 ```
+
+---
+
+## Phase 6 — « Je suis dans le bus » : partage en direct (18/10/2026)
+
+### Ce qui a été fait et pourquoi
+
+**Partagé (`@buslive/shared`)**
+
+- **`route.ts`**, de la géométrie en pur TypeScript, rapide et testable :
+  - `projectOnRoute` projette une position sur le tracé, en donnant sa distance
+    au tracé et la distance parcourue ;
+  - `progressMinutes` convertit cette distance en minutes depuis le terminus,
+    par interpolation entre les arrêts ;
+  - `etaMinutes` donne le temps d'arrivée à un arrêt.
+- **`live.ts`** :
+  - règles de validation (`LIVE_RULES`) ;
+  - `isSpeedPlausible` ;
+  - `groupIntoVehicles` : des passagers à moins de 150 m sur le même sens
+    forment un seul bus, avec leur position moyenne ;
+  - schémas des requêtes, des réponses et des messages Socket.io.
+
+**API**
+
+- **Partage en REST** : `POST /live/sessions`, `POST /live/sessions/:id/positions`
+  (lots de 20 au plus) et `DELETE /live/sessions/:id`.
+  - **Pourquoi REST ?** Une tâche d'arrière-plan Android envoie des lots de
+    positions ; une requête HTTP y est bien plus fiable qu'un socket
+    permanent.
+- **Diffusion par Socket.io** : espace `/live`, `watch:line`, puis `vehicles`
+  au plus toutes les 3 s par ligne (`LiveBroadcaster`). Il est public et
+  anonyme.
+- **Vérification de chaque position** :
+  - âge ≤ 10 min et précision ≤ 100 m ;
+  - position en Tunisie ;
+  - ≥ 5 s depuis la précédente, et vitesse ≤ 120 km/h ;
+  - **≤ 300 m du tracé de la ligne**.
+- **Fin automatique** au terminus, après 10 min sans position, ou au bout de
+  3 h. Un nouveau partage remplace le précédent.
+- **Vie privée** : registre **en mémoire** (`LiveRegistry`), et en base
+  (`live_sessions`) seulement la session et sa dernière position, **jamais le
+  trajet**. Les bus diffusés ne contiennent aucune information sur les
+  passagers. Les deux points sont vérifiés par des tests.
+- **Arrivées en direct aux arrêts** : `liveArrivals` dans
+  `/stops/:id/departures`.
+- `ConfiguredIoAdapter` applique `CORS_ORIGINS` à Socket.io, et la passerelle
+  est marquée `@Public()`.
+
+**Mobile**
+
+- **Écran « Je suis dans le bus »** (`app/share.tsx`) :
+  - choix de la ligne et du sens ;
+  - texte d'information affiché avant la demande de position en
+    arrière-plan, **exigé par Google Play** ;
+  - pendant le partage : nombre de passagers sur le bus, avertissement « loin
+    du parcours » et bouton Arrêter ;
+  - à la fin : message adapté (terminus, inactivité…).
+- **Deux modes** (`ShareProvider`) :
+  - **arrière-plan** (build EAS + permission « Toujours ») : la tâche
+    `backgroundTask.ts` envoie les positions même app fermée, avec la
+    notification permanente exigée par Android ;
+  - **app ouverte** (Expo Go, ou permission refusée) : suivi de la position
+    dans l'app, écran gardé allumé, et message clair.
+- **Bus en direct** (Socket.io, `useLineVehicles`) :
+  - sur la carte (couleur de la ligne, bordure verte), avec le bouton « Je suis
+    dans le bus » ;
+  - dans le détail d'une ligne : bus sur le tracé, « En direct · 4 min » à
+    chaque arrêt, et bouton « Je suis dans ce bus » ;
+  - dans le panneau d'un arrêt : arrivées en direct au-dessus des horaires.
+  - Le direct est **masqué hors ligne et après 2 min sans position**.
+- **EAS** : `eas.json` (profil `development` → APK) et `expo-dev-client`.
+
+### Écarts par rapport au plan
+
+- **`live: null` remplacé par une liste `liveArrivals`.** Associer un bus
+  observé à un horaire théorique précis serait hasardeux ; deux listes
+  séparées sont plus honnêtes et plus simples à afficher. Le cache hors ligne
+  passe en version `v2`, puisque le format a changé.
+- **Corrigé en cours de route** :
+  - la première version du calcul « passagers sur le même bus » était fausse.
+    Elle est remplacée par une liste `sessionIds` dans chaque groupe,
+    interne à l'API et jamais diffusée ;
+  - une variable inutile dans `eas.json` a été retirée (en build de
+    développement, le JS vient de ton PC).
+
+### Fichiers créés ou modifiés
+
+```
+packages/shared/src/route.ts, route.test.ts, live.ts, live.test.ts (créés)
+packages/shared/src/network.ts (liveArrivals), index.ts
+apps/api/prisma/schema.prisma (LiveSession), migrations/20261018143729_live_sessions/
+apps/api/src/live/live.module.ts, live.controller.ts, live.service.ts, live.registry.ts,
+                 live.broadcaster.ts, live.gateway.ts, route-cache.service.ts (créés)
+apps/api/src/common/io-adapter.ts (créé), setup-app.ts, app.module.ts, config/env.schema.ts
+apps/api/src/network/stops.service.ts, network.module.ts, users/enums-sync.test.ts
+apps/api/test/live.e2e-test.ts (créé), network.e2e-test.ts, utils.ts, test-env.cjs
+apps/api/package.json (websockets, socket.io), .env.example, README.md
+apps/mobile/app/share.tsx (créé), (tabs)/index.tsx, lines/[id].tsx, _layout.tsx
+apps/mobile/src/live/api.ts, backgroundTask.ts, environment.ts, positions.ts, ShareProvider.tsx,
+                     sharingStore.ts, socket.ts, useLineVehicles.ts, live.test.ts (créés)
+apps/mobile/src/components/BusMarker.tsx, LiveArrivalRow.tsx (créés), StopPassagesPanel.tsx,
+                           PassageRow.test.tsx
+apps/mobile/src/time/format.ts (+ formatEta), format.test.ts, i18n/locales/fr.json, ar.json
+apps/mobile/app.json (localisation en arrière-plan), eas.json (créé), package.json
+apps/mobile/README.md, CLAUDE.md, docs/ARCHITECTURE.md, JOURNAL.md, pnpm-lock.yaml
+```
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm --filter @buslive/api prisma:deploy    # nouvelle table live_sessions
+pnpm dev:api                                # terminal 1
+pnpm dev:mobile                             # terminal 2 (Expo Go : partage app ouverte)
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e
+```
+
+Résultats obtenus :
+
+- lint, format et typecheck sans erreur ;
+- tests unitaires : 66 dans shared, 39 dans l'API et 70 dans le mobile ;
+  tests e2e : **69**, dont 19 sur le temps réel, avec un vrai client
+  Socket.io. Ils ont été lancés deux fois de suite, sans instabilité ;
+- `expo-doctor` : 20 vérifications sur 20, et le bundle Android se construit
+  (5,2 Mo) ;
+- permissions Android vérifiées : `ACCESS_BACKGROUND_LOCATION` et
+  `FOREGROUND_SERVICE_LOCATION` sont bien présentes ;
+- écart schéma ↔ base : « empty migration ».
+
+**Pas encore testé sur un vrai téléphone**, en particulier l'arrière-plan, qui
+demande le build EAS.
+
+### À configurer soi-même
+
+- **Build de développement EAS** (détail dans `apps/mobile/README.md`) :
+  1. créer un compte sur expo.dev, puis `npm install -g eas-cli` ;
+  2. **commiter** tes changements ;
+  3. dans `apps/mobile` : `eas login`, `eas init`, puis
+     `eas build --profile development --platform android` ;
+  4. installer l'APK sur ton téléphone.
+
+  `eas init` ajoutera un identifiant de projet dans `app.json` : c'est normal,
+  à commiter. Si le premier build échoue (monorepo pnpm sur les serveurs
+  EAS), envoie-moi le journal du build et je corrigerai.
+
+- **Pour tester le direct** : deux téléphones (ou un téléphone et Swagger, pour
+  envoyer des positions à la main), sur une ligne de démonstration, près du
+  tracé. Avec les données inventées, il faut être physiquement près des
+  arrêts de démonstration ; sinon tes positions seront refusées car « hors
+  parcours ».
+- **Avant la publication (phase 11)** :
+  - retirer les permissions Android inutiles ajoutées par défaut
+    (`READ/WRITE_EXTERNAL_STORAGE`, `SYSTEM_ALERT_WINDOW`) ;
+  - remplir le formulaire Google Play de justification de la localisation en
+    arrière-plan ;
+  - passer le registre du direct sur Redis s'il y a plusieurs instances de
+    l'API.
+
+### Message de commit proposé
+
+```
+feat(live): partage « Je suis dans le bus » et bus en direct
+
+- API : sessions de partage (REST), validation des positions (précision, vitesse, tracé)
+- regroupement des passagers en bus, progression sur le parcours et temps d'arrivée
+- diffusion temps réel par Socket.io (/live), sans donnée personnelle ni historique
+- mobile : écran de partage, localisation en arrière-plan (build EAS) ou app ouverte
+- bus en direct sur la carte, le détail d'une ligne et les arrêts (« En direct · 4 min »)
+```

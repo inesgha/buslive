@@ -2,6 +2,7 @@ import 'reflect-metadata';
 
 import type { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
+import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -36,9 +37,19 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
   // à chaque nouvelle table.
   await prisma.$executeRaw`
     TRUNCATE TABLE
+      live_sessions,
       departures, line_stops, line_directions, lines, service_calendars,
       stops, localities, operators, governorates,
       refresh_tokens, users
     CASCADE
   `;
+}
+
+/** Crée un compte et renvoie son access token (pour appeler les routes protégées). */
+export async function registerUser(testApp: TestApp, email: string): Promise<string> {
+  const response = await request(testApp.app.getHttpServer())
+    .post('/api/v1/auth/register')
+    .send({ email, password: 'un-mot-de-passe-solide', displayName: 'Passager' })
+    .expect(201);
+  return (response.body as { tokens: { accessToken: string } }).tokens.accessToken;
 }

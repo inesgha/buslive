@@ -175,15 +175,32 @@ export const StopPassageSchema = z.object({
   direction: DirectionSummarySchema,
   serviceDate: z.iso.date(),
   passingMinutes: z.number().int().nonnegative(),
-  /** Données en temps réel (position, retard) : arrivent en phase 6. */
-  live: z.null(),
 });
 export type StopPassage = z.infer<typeof StopPassageSchema>;
+
+/**
+ * Arrivée EN DIRECT d'un bus à un arrêt, calculée depuis sa position partagée
+ * par les passagers (phase 6). Séparée des passages théoriques : on ne devine
+ * pas à quel horaire correspond le bus observé.
+ */
+export const LiveArrivalSchema = z.object({
+  vehicleId: z.string(),
+  line: LineBadgeSchema.extend({ nameFr: z.string(), nameAr: z.string() }),
+  direction: DirectionSummarySchema,
+  /** Minutes avant l'arrivée à l'arrêt (0 = à l'arrêt). */
+  etaMinutes: z.number().int().nonnegative(),
+  /** Dernière position reçue (ISO 8601) : au-delà de 2 min, ne plus afficher. */
+  updatedAt: z.iso.datetime(),
+});
+export type LiveArrival = z.infer<typeof LiveArrivalSchema>;
 
 export const StopDeparturesSchema = z.object({
   stopId: z.uuid(),
   /** Instant de calcul (ISO 8601). */
   generatedAt: z.iso.datetime(),
+  /** Bus en direct qui approchent de l'arrêt (vide si aucun passager ne partage). */
+  liveArrivals: z.array(LiveArrivalSchema),
+  /** Passages théoriques (horaires). */
   passages: z.array(StopPassageSchema),
 });
 export type StopDepartures = z.infer<typeof StopDeparturesSchema>;

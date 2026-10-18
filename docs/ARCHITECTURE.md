@@ -51,16 +51,34 @@ cible, et précise ce qui existe déjà.
   adresse IP. Les compteurs sont en mémoire pour l'instant, et passeront sur
   Redis s'il y a plusieurs instances.
 
-## Le flux « Je suis dans le bus » (phase 6)
+## Le flux « Je suis dans le bus » (phase 6, en place)
 
-1. Le passager confirme la ligne et le sens. L'app envoie sa position GPS à
-   intervalle régulier (aussi en arrière-plan).
-2. L'API valide la position : schéma zod, point situé en Tunisie, vitesse
-   plausible, proximité du tracé de la ligne.
-3. Si plusieurs passagers sont dans le même bus, leurs positions sont fusionnées
-   en une seule « position du bus », pondérée par leur niveau de confiance.
-4. La position est diffusée dans la room de la ligne. Les alertes « bus qui
-   approche » sont calculées par rapport aux arrêts favoris.
+```
+ téléphone du passager                 API                         autres passagers
+ ─────────────────────                 ───                         ────────────────
+ tâche GPS (arrière-plan) ──REST──▶ vérifie chaque position ──Socket.io──▶ carte : bus en direct
+   lots de positions             (précision, vitesse, tracé)     « vehicles » par ligne
+                                 projette sur le tracé
+                                 regroupe les passagers en bus
+                                 → progression en minutes ──────▶ « En direct · 4 min »
+```
+
+1. Le passager connecté choisit sa ligne et son sens. Selon le cas, l'app
+   envoie ses positions par lots depuis une tâche d'arrière-plan (build EAS),
+   ou seulement quand elle est ouverte (Expo Go).
+2. L'API vérifie chaque position : précision, Tunisie, vitesse plausible,
+   distance au tracé et intervalle minimal.
+3. La position est projetée sur le tracé, puis convertie en « minutes depuis le
+   terminus » grâce aux temps de trajet entre arrêts. Le temps d'arrivée à un
+   arrêt vaut alors : temps de l'arrêt − progression du bus.
+4. Les passagers proches sur le même sens forment un seul bus. Le score de
+   confiance (phase 7) pondérera leurs positions.
+5. Les bus sont diffusés par Socket.io dans la room de la ligne, au plus toutes
+   les 3 s, et de façon anonyme.
+6. **Vie privée** : le registre est en mémoire. La base ne garde que la session
+   et sa dernière position.
+7. **À faire plus tard** : alertes « bus qui approche » sur les favoris
+   (phase 8) et passages observés pour les statistiques (phase 7).
 
 ## Confiance et modération (phases 7 et 10)
 

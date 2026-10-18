@@ -28,6 +28,9 @@ import {
 import { AuthProvider } from '@/auth/AuthProvider';
 import { initI18n } from '@/i18n';
 import { ensureDirection } from '@/i18n/direction';
+// Définit la tâche de localisation en arrière-plan dès le démarrage (voir le fichier).
+import '@/live/backgroundTask';
+import { ShareProvider } from '@/live/ShareProvider';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
 
@@ -70,15 +73,17 @@ export default function RootLayout() {
             persister: queryPersister,
             maxAge: OFFLINE_MAX_AGE_MS,
             // À changer si le format des données en cache change (invalide l'ancien cache).
-            buster: 'v1',
+            buster: 'v2',
             dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
           }}
         >
           <ThemeProvider>
             <AuthProvider>
-              <ThemedNavigation>
-                <RootStack />
-              </ThemedNavigation>
+              <ShareProvider>
+                <ThemedNavigation>
+                  <RootStack />
+                </ThemedNavigation>
+              </ShareProvider>
             </AuthProvider>
           </ThemeProvider>
         </PersistQueryClientProvider>
@@ -135,6 +140,7 @@ function RootStack() {
       />
       {/* Le titre (numéro et nom de la ligne) est fixé par l'écran lui-même. */}
       <Stack.Screen name="lines/[id]" options={{ title: '' }} />
+      <Stack.Screen name="share" options={{ title: t('share.title'), presentation: 'modal' }} />
     </Stack>
   );
 }
