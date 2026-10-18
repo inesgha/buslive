@@ -505,3 +505,165 @@ feat(network): modèle du réseau, horaires et données de démonstration
 - routes publiques /governorates, /lines, /lines/:id, /stops/:id
 - seed idempotent : 24 gouvernorats réels + réseau de démonstration Mahdia / Ksour Essef
 ```
+
+---
+
+## Phase 4 — Squelette de l'app mobile (18/10/2026)
+
+### Ce qui a été fait et pourquoi
+
+- **Expo SDK 58** (React Native 0.88, React 19.3), compatible avec Node 22.19,
+  avec **expo-router**. Je suis parti du modèle vide : seules les images ont
+  été reprises, il n'y a donc aucun écran d'exemple à nettoyer. Les modules
+  natifs ont été installés avec `npx expo install`, qui choisit les versions
+  du SDK.
+  - **pnpm** : les `node_modules` isolés fonctionnent avec Metro. Pas besoin du
+    mode `hoisted`.
+- **Navigation** : barre Carte · Lignes · [Signaler] · Alertes · Profil. Le
+  bouton central Signaler est un cercle jaune surélevé. En arabe, l'ordre des
+  onglets s'inverse tout seul. La connexion et l'inscription s'ouvrent en
+  fenêtres modales.
+- **Thème** : jetons de couleur tirés de ta maquette, en clair et en sombre.
+  - Le mode suit le téléphone par défaut, et peut être choisi dans Profil.
+  - **Un test vérifie le contraste WCAG AA** (≥ 4,5:1) de chaque couleur de
+    texte sur chaque fond, dans les deux thèmes. Les statuts sont éclaircis en
+    mode sombre.
+  - La couleur du texte sur la pastille d'une ligne (blanc ou bleu nuit) est
+    choisie automatiquement selon le contraste.
+- **Police Readex Pro**, importée graisse par graisse : seules les 4 graisses
+  utilisées sont embarquées, soit environ 200 Ko de moins.
+- **Langues** : i18next, avec la langue détectée sur le téléphone ou choisie
+  dans Profil.
+  - Les clés de traduction sont typées : une clé mal écrite est une erreur
+    TypeScript.
+  - **Un test garantit que `fr.json` et `ar.json` ont les mêmes clés et les
+    mêmes variables**.
+  - **RTL natif** (`I18nManager`). Changer de sens d'écriture redémarre l'app
+    (`reloadAppAsync` d'`expo`, ce qui rend `expo-updates` inutile), avec un
+    garde-fou contre les boucles de redémarrage.
+- **Connexion à l'API** :
+  - chaque réponse est validée avec les schémas zod partagés ;
+  - délai maximal de 15 s par requête ;
+  - erreurs typées (`ApiError`, `NetworkError`, `InvalidResponseError`) ;
+  - TanStack Query gère le cache et le rechargement.
+- **Onglet Lignes avec de vraies données** (`GET /lines`) :
+  - tirer vers le bas pour recharger ;
+  - états chargement, erreur avec « Réessayer », et liste vide ;
+  - noms affichés en français ou en arabe.
+- **Connexion et inscription** (ton choix) :
+  - formulaires validés avec les schémas partagés, et messages d'erreur
+    traduits (champ et code zod → clé de traduction) ;
+  - refresh token dans **expo-secure-store**, access token en mémoire ;
+  - **une seule requête `/auth/refresh` à la fois** (testé avec 3 requêtes
+    simultanées) ;
+  - déconnexion automatique si la session est révoquée ;
+  - profil mis en cache pour l'affichage hors ligne.
+- **Composants réutilisables** : `AppText`, `Button`, `Card`, `TextField`
+  (aligné en RTL), `EmptyState`, `LineBadge`, `LineRow`, `SegmentedControl` et
+  `ReportTabButton`. Les zones tactiles font au moins 48 px, avec des libellés
+  d'accessibilité.
+- **ESLint** : règles React Hooks pour l'app mobile, avec un fichier
+  volontairement fautif pour vérifier qu'elles s'appliquent.
+
+### Problèmes rencontrés et corrections
+
+- **Un caractère `U+FFFD` stocké tel quel** dans `@buslive/shared` (phase 2) au
+  lieu de sa forme échappée. Remplacé par une constante
+  `REPLACEMENT_CHARACTER = String.fromCharCode(0xfffd)`, plus lisible. J'ai
+  vérifié qu'aucun autre fichier n'en contient.
+- **Testing Library 14** : `render` est devenu asynchrone, il faut l'attendre
+  (`await render(…)`).
+- **Expo 58 refuse `REACT_NATIVE_PACKAGER_HOSTNAME` dans `.env`** : la
+  configuration locale de l'app est donc dans `apps/mobile/.env.local`.
+- **Ton PC a des cartes réseau VMware et WSL** : Expo aurait pu annoncer une
+  adresse injoignable. L'adresse Wi-Fi est forcée, et j'ai vérifié que le
+  manifeste annonce bien `10.35.111.93`.
+- **Expo réécrit `tsconfig.json#include`** au démarrage : j'ai gardé sa
+  version.
+
+### Fichiers créés ou modifiés
+
+```
+apps/mobile/package.json, app.json, tsconfig.json, .env.example, README.md
+apps/mobile/jest.config.cjs, jest.setup.cjs
+apps/mobile/assets/ (icônes et écran de démarrage provisoires d'Expo)
+apps/mobile/app/_layout.tsx, (tabs)/_layout.tsx, (tabs)/index.tsx, (tabs)/lines.tsx,
+               (tabs)/report.tsx, (tabs)/alerts.tsx, (tabs)/profile.tsx,
+               auth/login.tsx, auth/register.tsx
+apps/mobile/src/api/http.ts, client.ts, errors.ts, auth.ts, network.ts, queryClient.ts,
+                    client.test.ts
+apps/mobile/src/auth/session.ts, tokenStorage.ts, AuthProvider.tsx, errorMessages.ts,
+                     errorMessages.test.ts
+apps/mobile/src/components/AppText.tsx, Button.tsx, Card.tsx, TextField.tsx, EmptyState.tsx,
+                           LineBadge.tsx, LineRow.tsx (+ test), SegmentedControl.tsx,
+                           ReportTabButton.tsx, Screen.tsx
+apps/mobile/src/i18n/index.ts, direction.ts, localized.ts, i18next.d.ts, locales.test.ts,
+                     locales/fr.json, locales/ar.json
+apps/mobile/src/storage/preferences.ts
+apps/mobile/src/theme/tokens.ts, contrast.ts (+ test), ThemeProvider.tsx
+packages/shared/src/auth.ts (constantes DISPLAY_NAME_*, REPLACEMENT_CHARACTER), auth.test.ts
+eslint.config.mjs (React Hooks), package.json (dev:mobile, eslint-plugin-react-hooks)
+.gitignore, .prettierignore, pnpm-lock.yaml
+README.md, CLAUDE.md, docs/ARCHITECTURE.md, JOURNAL.md
+```
+
+Fichier local non versionné : `apps/mobile/.env.local` (adresse Wi-Fi
+`10.35.111.93`).
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm db:up
+pnpm dev:api        # terminal 1
+pnpm dev:mobile     # terminal 2 → scanner le QR code avec Expo Go
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e
+```
+
+Résultats obtenus :
+
+- lint, format et typecheck (shared, API, mobile) sans erreur ;
+- tests unitaires : 42 dans shared, 36 dans l'API et **43 dans le mobile** ;
+  tests e2e : 39 ;
+- `expo-doctor` : 20 vérifications sur 20 réussies ;
+- bundle Android construit avec `expo export` (4,9 Mo), et l'URL de l'API y est
+  bien intégrée ;
+- serveur Expo démarré : le manifeste annonce l'adresse Wi-Fi ;
+- l'API répond sur `http://10.35.111.93:3000`, avec ses 4 lignes.
+
+**Pas encore testé sur un vrai téléphone** : c'est à toi de faire ce premier
+essai avec Expo Go, après la configuration du pare-feu ci-dessous.
+
+### À configurer soi-même
+
+- **Pare-feu Windows** : aucune règle n'autorise les connexions entrantes, et
+  ton Wi-Fi est classé « Public ». Dans PowerShell **en administrateur** :
+
+  ```powershell
+  New-NetFirewallRule -DisplayName "BusLive API (3000)" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
+  New-NetFirewallRule -DisplayName "BusLive Expo (8081)" -Direction Inbound -Protocol TCP -LocalPort 8081 -Action Allow -Profile Private
+  ```
+
+  Ensuite, passe le Wi-Fi en « Privé », mais **seulement si c'est un réseau
+  de confiance**. Sur un réseau d'université ou d'entreprise (ton adresse
+  `10.35.x.x` le laisse penser), les appareils sont souvent isolés entre eux :
+  utilise plutôt le point d'accès du téléphone, et mets à jour l'IP dans
+  `apps/mobile/.env.local`.
+
+- **Expo Go** : l'installer depuis le Play Store, en version compatible avec le
+  SDK 58.
+- **Relire les textes arabes** (`apps/mobile/src/i18n/locales/ar.json`) avec une
+  personne arabophone.
+- **Avant la publication** : une vraie icône et un vrai écran de démarrage
+  (ceux d'Expo sont provisoires), et vérifier l'identifiant `tn.buslive.app`.
+
+### Message de commit proposé
+
+```
+feat(mobile): squelette de l'app Expo (navigation, thème, fr/ar RTL, connexion)
+
+- Expo SDK 58 + expo-router : barre Carte · Lignes · Signaler · Alertes · Profil
+- thème clair/sombre d'après la maquette (contrastes AA testés), police Readex Pro
+- i18n français / arabe avec RTL natif et redémarrage au changement de sens
+- client API validé par les schémas zod partagés, liste des lignes depuis l'API
+- connexion / inscription, jetons dans expo-secure-store, rafraîchissement unique
+```

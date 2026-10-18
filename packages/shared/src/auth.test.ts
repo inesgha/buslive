@@ -1,4 +1,4 @@
-import { EmailSchema, LoginSchema, RegisterSchema } from './auth';
+import { EmailSchema, LoginSchema, RegisterSchema, REPLACEMENT_CHARACTER } from './auth';
 
 describe('EmailSchema', () => {
   it('nettoie les espaces et met en minuscules avant de valider', () => {
@@ -30,7 +30,8 @@ describe('RegisterSchema', () => {
   });
 
   it('refuse un nom contenant un caractère mal encodé (U+FFFD)', () => {
-    expect(RegisterSchema.safeParse({ ...valid, displayName: 'D�mo' }).success).toBe(false);
+    const garbled = `D${REPLACEMENT_CHARACTER}mo`;
+    expect(RegisterSchema.safeParse({ ...valid, displayName: garbled }).success).toBe(false);
   });
 
   it('ignore un champ « role » envoyé par le client', () => {

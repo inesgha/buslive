@@ -6,3 +6,4 @@ coverage
 pnpm-lock.yaml
 .claude
 **/src/generated
+expo-env.d.ts

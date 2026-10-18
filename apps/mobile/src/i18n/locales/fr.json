@@ -1,0 +1,85 @@
+{
+  "tabs": {
+    "map": "Carte",
+    "lines": "Lignes",
+    "report": "Signaler",
+    "alerts": "Alertes",
+    "profile": "Profil"
+  },
+  "common": {
+    "loading": "Chargement…",
+    "retry": "Réessayer",
+    "comingSoon": "Bientôt disponible",
+    "cancel": "Annuler",
+    "networkError": "Impossible de joindre le serveur. Vérifie ta connexion.",
+    "genericError": "Une erreur est survenue."
+  },
+  "languages": {
+    "fr": "Français",
+    "ar": "العربية"
+  },
+  "map": {
+    "title": "Carte en direct",
+    "placeholder": "La carte des bus en temps réel arrive bientôt."
+  },
+  "lines": {
+    "title": "Lignes",
+    "empty": "Aucune ligne disponible pour le moment.",
+    "error": "Impossible de charger les lignes.",
+    "type": {
+      "URBAN": "Urbaine",
+      "SUBURBAN": "Banlieue",
+      "INTERCITY": "Interurbaine"
+    }
+  },
+  "report": {
+    "title": "Signaler",
+    "placeholder": "Bientôt, tu pourras signaler un bus pas venu, plein, en retard ou en panne."
+  },
+  "alerts": {
+    "title": "Alertes",
+    "placeholder": "Bientôt : alertes de bus qui approche et alternatives (louage, covoiturage)."
+  },
+  "profile": {
+    "title": "Profil",
+    "account": "Compte",
+    "signedInAs": "Connecté en tant que",
+    "signedOutHint": "Connecte-toi pour partager ta position et signaler un bus.",
+    "signIn": "Se connecter",
+    "signUp": "Créer un compte",
+    "signOut": "Se déconnecter",
+    "language": "Langue",
+    "theme": "Apparence",
+    "themeSystem": "Système",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "restartTitle": "Redémarrage nécessaire",
+    "restartMessage": "L’application va redémarrer pour changer le sens d’écriture.",
+    "restart": "Redémarrer"
+  },
+  "auth": {
+    "loginTitle": "Connexion",
+    "registerTitle": "Créer un compte",
+    "email": "Adresse email",
+    "password": "Mot de passe",
+    "displayName": "Nom affiché",
+    "submitLogin": "Se connecter",
+    "submitRegister": "Créer mon compte",
+    "noAccount": "Pas encore de compte ? Inscris-toi",
+    "haveAccount": "Déjà un compte ? Connecte-toi",
+    "errors": {
+      "invalidCredentials": "Email ou mot de passe incorrect.",
+      "emailTaken": "Un compte existe déjà avec cet email.",
+      "tooManyAttempts": "Trop de tentatives. Réessaie dans quelques instants."
+    },
+    "validation": {
+      "required": "Champ obligatoire.",
+      "email": "Adresse email invalide.",
+      "passwordTooShort": "Au moins {{min}} caractères.",
+      "passwordTooLong": "Au plus {{max}} caractères.",
+      "displayNameTooShort": "Au moins {{min}} caractères.",
+      "displayNameTooLong": "Au plus {{max}} caractères.",
+      "displayNameInvalid": "Le nom contient des caractères invalides."
+    }
+  }
+}

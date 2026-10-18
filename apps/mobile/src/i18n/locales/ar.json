@@ -1,0 +1,85 @@
+{
+  "tabs": {
+    "map": "الخريطة",
+    "lines": "الخطوط",
+    "report": "إبلاغ",
+    "alerts": "التنبيهات",
+    "profile": "حسابي"
+  },
+  "common": {
+    "loading": "جارٍ التحميل…",
+    "retry": "إعادة المحاولة",
+    "comingSoon": "قريبًا",
+    "cancel": "إلغاء",
+    "networkError": "تعذّر الاتصال بالخادم. تحقّق من اتصالك بالإنترنت.",
+    "genericError": "حدث خطأ ما."
+  },
+  "languages": {
+    "fr": "Français",
+    "ar": "العربية"
+  },
+  "map": {
+    "title": "الخريطة المباشرة",
+    "placeholder": "خريطة الحافلات في الوقت الفعلي قريبًا."
+  },
+  "lines": {
+    "title": "الخطوط",
+    "empty": "لا توجد خطوط متاحة حاليًا.",
+    "error": "تعذّر تحميل الخطوط.",
+    "type": {
+      "URBAN": "حضري",
+      "SUBURBAN": "ضواحي",
+      "INTERCITY": "بين المدن"
+    }
+  },
+  "report": {
+    "title": "إبلاغ",
+    "placeholder": "قريبًا، يمكنك الإبلاغ عن حافلة لم تأتِ أو ممتلئة أو متأخرة أو معطّلة."
+  },
+  "alerts": {
+    "title": "التنبيهات",
+    "placeholder": "قريبًا: تنبيهات اقتراب الحافلة وبدائل (لواج، مشاركة السيارة)."
+  },
+  "profile": {
+    "title": "حسابي",
+    "account": "الحساب",
+    "signedInAs": "متصل باسم",
+    "signedOutHint": "سجّل الدخول لمشاركة موقعك والإبلاغ عن الحافلات.",
+    "signIn": "تسجيل الدخول",
+    "signUp": "إنشاء حساب",
+    "signOut": "تسجيل الخروج",
+    "language": "اللغة",
+    "theme": "المظهر",
+    "themeSystem": "حسب الهاتف",
+    "themeLight": "فاتح",
+    "themeDark": "داكن",
+    "restartTitle": "إعادة التشغيل مطلوبة",
+    "restartMessage": "سيُعاد تشغيل التطبيق لتغيير اتجاه الكتابة.",
+    "restart": "إعادة التشغيل"
+  },
+  "auth": {
+    "loginTitle": "تسجيل الدخول",
+    "registerTitle": "إنشاء حساب",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "displayName": "الاسم الظاهر",
+    "submitLogin": "تسجيل الدخول",
+    "submitRegister": "إنشاء حسابي",
+    "noAccount": "ليس لديك حساب؟ أنشئ حسابًا",
+    "haveAccount": "لديك حساب؟ سجّل الدخول",
+    "errors": {
+      "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+      "emailTaken": "يوجد حساب مسجّل بهذا البريد الإلكتروني.",
+      "tooManyAttempts": "محاولات كثيرة. أعد المحاولة بعد قليل."
+    },
+    "validation": {
+      "required": "حقل إلزامي.",
+      "email": "بريد إلكتروني غير صالح.",
+      "passwordTooShort": "{{min}} أحرف على الأقل.",
+      "passwordTooLong": "{{max}} حرفًا كحد أقصى.",
+      "displayNameTooShort": "{{min}} أحرف على الأقل.",
+      "displayNameTooLong": "{{max}} حرفًا كحد أقصى.",
+      "displayNameInvalid": "يحتوي الاسم على أحرف غير صالحة."
+    }
+  }
+}

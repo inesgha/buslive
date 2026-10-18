@@ -20,9 +20,14 @@ apps/api/src/generated/
 # Expo / React Native (phase 4)
 .expo/
 expo-env.d.ts
+web-build/
+.metro-health-check*
+.kotlin/
 android/
 ios/
 *.jks
+*.key
+*.pem
 *.keystore
 *.p8
 *.p12

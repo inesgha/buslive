@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "BusLive",
+    "slug": "buslive",
+    "scheme": "buslive",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "tn.buslive.app"
+    },
+    "android": {
+      "package": "tn.buslive.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFC52E",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-localization",
+        {
+          "supportsRTL": true,
+          "supportedLocales": ["fr", "ar"]
+        }
+      ],
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FFC52E",
+          "dark": {
+            "backgroundColor": "#0E1B2C"
+          }
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}

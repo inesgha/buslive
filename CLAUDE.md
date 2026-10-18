@@ -69,6 +69,35 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
 - **NestJS 12, sans `@nestjs/cli`** : toutes les versions de `@nestjs/cli` 12 exigent
   Node ≥ 22.22.3 (via `@angular-devkit`). Le build utilise `tsc`, le mode dev
   `tsc-watch`, et les fichiers se créent à la main (pas de `nest generate`).
+- **Expo SDK 58** (React Native 0.88, React 19.3). Toujours installer un module
+  natif avec `npx expo install <paquet>` (dans `apps/mobile`), qui choisit la
+  version compatible avec le SDK. Vérifier avec `npx expo-doctor`.
+
+## Particularités de l'app mobile (apps/mobile)
+
+- expo-router : un fichier de `app/` = un écran. Barre d'onglets dans
+  `app/(tabs)/_layout.tsx`, écrans modaux de connexion dans `app/auth/`.
+- Thème : couleurs uniquement via `useTheme().colors` / `AppText color=…` (jamais
+  en dur). Police Readex Pro importée graisse par graisse (4 graisses).
+  `contrast.test.ts` vérifie le contraste AA de chaque couleur de texte.
+- Textes : clés i18next typées ; toute clé ajoutée dans `fr.json` doit l'être dans
+  `ar.json` (test `locales.test.ts`). Textes arabes à faire relire par une
+  personne arabophone.
+- RTL : `I18nManager` (natif). Changer fr ↔ ar demande un redémarrage
+  (`reloadAppAsync` d'`expo`), géré dans `src/i18n/direction.ts` avec un garde-fou
+  anti-boucle. `<TextInput>` ne s'aligne pas seul : passer par `TextField`.
+- Session : refresh token dans `expo-secure-store`, access token en mémoire,
+  profil en cache (AsyncStorage) pour l'affichage hors ligne. `apiRequest(…, { auth: true })`
+  regroupe les rafraîchissements simultanés en UNE requête `/auth/refresh`.
+- Réponses de l'API validées par les schémas zod de `@buslive/shared` (`src/api/http.ts`).
+- Configuration locale dans `apps/mobile/.env.local` (pas `.env` : Expo refuse
+  `REACT_NATIVE_PACKAGER_HOSTNAME` hors d'un fichier `.local`). Le PC a des
+  cartes réseau VMware/WSL : `REACT_NATIVE_PACKAGER_HOSTNAME` force l'IP Wi-Fi.
+- Tests : `jest-expo` + Testing Library 14 (**`render` est asynchrone : `await render(…)`**).
+  Simulations d'AsyncStorage et d'expo-secure-store dans `jest.setup.cjs`.
+- Vérifier que l'app s'assemble sans téléphone :
+  `npx expo export --platform android --output-dir <dossier temporaire>`.
+- Expo réécrit `tsconfig.json#include` au démarrage : garder `["**/*.ts", "**/*.tsx"]`.
 
 ## Particularités de l'API (apps/api)
 
@@ -159,6 +188,7 @@ pnpm typecheck        # vérifier les types
 pnpm test             # lancer les tests unitaires
 pnpm test:e2e         # tests de bout en bout (base Docker requise)
 pnpm dev:api          # API en mode développement (http://localhost:3000/api/v1)
+pnpm dev:mobile       # app mobile (Expo, QR code pour Expo Go)
 pnpm --filter @buslive/api prisma:migrate   # créer / appliquer une migration
 pnpm --filter @buslive/api db:seed          # gouvernorats + réseau de démonstration
 pnpm lint             # ESLint

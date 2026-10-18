@@ -1,8 +1,9 @@
 // Configuration ESLint commune à tout le monorepo (format « flat config »).
-// Chaque app pourra ajouter ses propres règles (React, NestJS…) dans les phases suivantes.
+// Les blocs « files: […] » plus bas ajoutent les règles propres à chaque app.
 import js from '@eslint/js';
 import { defineConfig } from 'eslint/config';
 import prettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -18,6 +19,8 @@ export default defineConfig(
       '**/ios/**',
       // Code généré par Prisma (prisma generate)
       '**/src/generated/**',
+      // Fichier de types généré par Expo
+      '**/expo-env.d.ts',
     ],
   },
   js.configs.recommended,
@@ -52,6 +55,15 @@ export default defineConfig(
         emitDecoratorMetadata: true,
         experimentalDecorators: true,
       },
+    },
+  },
+  {
+    // App mobile (React Native) : règles des hooks React (ordre des appels,
+    // dépendances des useEffect…) et variables globales de React Native et Jest.
+    files: ['apps/mobile/**/*.{ts,tsx,cjs}'],
+    extends: [reactHooks.configs.flat.recommended],
+    languageOptions: {
+      globals: { ...globals.jest, __DEV__: 'readonly' },
     },
   },
   // Toujours en dernier : désactive les règles de style gérées par Prettier.

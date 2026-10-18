@@ -89,21 +89,30 @@ Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
    - Santé de la base : <http://localhost:3000/api/v1/health/ready>
    - Documentation Swagger : <http://localhost:3000/api/docs>
 
+6. Lancer l'app mobile sur un téléphone Android avec Expo Go (dans un second
+   terminal). La configuration à faire une seule fois (adresse IP du PC,
+   pare-feu Windows) est décrite dans [apps/mobile/README.md](apps/mobile/README.md).
+
+   ```bash
+   pnpm dev:mobile    # puis scanner le QR code avec Expo Go
+   ```
+
 ## Commandes utiles
 
-| Commande         | Effet                                                  |
-| ---------------- | ------------------------------------------------------ |
-| `pnpm build`     | Compile les packages                                   |
-| `pnpm typecheck` | Vérifie les types TypeScript                           |
-| `pnpm test`      | Lance les tests unitaires Jest                         |
-| `pnpm test:e2e`  | Lance les tests de bout en bout (base démarrée)        |
-| `pnpm dev:api`   | Lance l'API avec rechargement automatique              |
-| `pnpm lint`      | Analyse le code avec ESLint (`lint:fix` pour corriger) |
-| `pnpm format`    | Formate le code avec Prettier                          |
-| `pnpm db:up`     | Démarre PostgreSQL + PostGIS                           |
-| `pnpm db:psql`   | Ouvre une console SQL                                  |
-| `pnpm db:logs`   | Affiche les logs de la base                            |
-| `pnpm db:down`   | Arrête les conteneurs (les données sont conservées)    |
+| Commande          | Effet                                                  |
+| ----------------- | ------------------------------------------------------ |
+| `pnpm build`      | Compile les packages                                   |
+| `pnpm typecheck`  | Vérifie les types TypeScript                           |
+| `pnpm test`       | Lance les tests unitaires Jest                         |
+| `pnpm test:e2e`   | Lance les tests de bout en bout (base démarrée)        |
+| `pnpm dev:api`    | Lance l'API avec rechargement automatique              |
+| `pnpm dev:mobile` | Lance l'app mobile (Expo, QR code pour Expo Go)        |
+| `pnpm lint`       | Analyse le code avec ESLint (`lint:fix` pour corriger) |
+| `pnpm format`     | Formate le code avec Prettier                          |
+| `pnpm db:up`      | Démarre PostgreSQL + PostGIS                           |
+| `pnpm db:psql`    | Ouvre une console SQL                                  |
+| `pnpm db:logs`    | Affiche les logs de la base                            |
+| `pnpm db:down`    | Arrête les conteneurs (les données sont conservées)    |
 
 Interface web de la base (optionnelle) :
 `docker compose --profile tools up -d` puis <http://localhost:8080>

@@ -110,6 +110,23 @@ Governorate ──< Locality
   région revient à importer ses lignes et arrêts, puis à l'activer. Aucun code à
   modifier.
 
+## Application mobile (phase 4, en place)
+
+- **Socle** : Expo SDK 58 et expo-router. La barre d'onglets comprend Carte,
+  Lignes, Signaler (bouton central), Alertes et Profil.
+- **Thème** clair et sombre, tiré de la maquette. Les couleurs passent toutes
+  par des jetons dont le contraste est testé, et la police est Readex Pro.
+- **Langues** : français et arabe, avec le RTL natif (`I18nManager`). Changer
+  de sens d'écriture redémarre l'app.
+- **Session** :
+  - le refresh token est stocké dans le coffre-fort du téléphone
+    (`expo-secure-store`), l'access token seulement en mémoire ;
+  - une seule requête `/auth/refresh` à la fois, à cause de la rotation des
+    jetons côté API ;
+  - le profil est mis en cache pour l'affichage hors ligne.
+- **Données** : TanStack Query gère le chargement et le cache. Chaque réponse
+  est validée avec les schémas zod de `@buslive/shared`.
+
 ## Hors ligne (phases 4–5)
 
 - `GET /lines/:id` renvoie tout ce qu'il faut pour calculer les horaires d'une

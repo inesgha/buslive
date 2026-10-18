@@ -30,14 +30,30 @@ export const PasswordSchema = z
     `Le mot de passe ne doit pas dépasser ${PASSWORD_MAX_LENGTH} caractères.`,
   );
 
+export const DISPLAY_NAME_MIN_LENGTH = 2;
+export const DISPLAY_NAME_MAX_LENGTH = 50;
+
+/**
+ * Caractère de remplacement Unicode (U+FFFD). Il apparaît quand un texte mal
+ * encodé (pas en UTF-8) est décodé : on refuse plutôt que d'enregistrer un nom abîmé.
+ */
+export const REPLACEMENT_CHARACTER = String.fromCharCode(0xfffd);
+
 export const DisplayNameSchema = z
   .string()
   .trim()
-  .min(2, 'Le nom doit contenir au moins 2 caractères.')
-  .max(50, 'Le nom ne doit pas dépasser 50 caractères.')
-  // « � » (U+FFFD) apparaît quand un texte mal encodé (pas en UTF-8) est décodé :
-  // on refuse plutôt que d'enregistrer un nom abîmé.
-  .refine((name) => !name.includes('�'), 'Le nom contient des caractères invalides.');
+  .min(
+    DISPLAY_NAME_MIN_LENGTH,
+    `Le nom doit contenir au moins ${DISPLAY_NAME_MIN_LENGTH} caractères.`,
+  )
+  .max(
+    DISPLAY_NAME_MAX_LENGTH,
+    `Le nom ne doit pas dépasser ${DISPLAY_NAME_MAX_LENGTH} caractères.`,
+  )
+  .refine(
+    (name) => !name.includes(REPLACEMENT_CHARACTER),
+    'Le nom contient des caractères invalides.',
+  );
 
 /**
  * Corps de POST /auth/register.

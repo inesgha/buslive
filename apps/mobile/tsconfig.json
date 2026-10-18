@@ -1,0 +1,16 @@
+{
+  // Base fournie par Expo (JSX, résolution « bundler » de Metro, types React Native).
+  // « include » est géré par Expo : il le réécrit au démarrage s'il ne lui convient pas.
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "types": ["jest"],
+    // « @/theme » → « src/theme » (géré nativement par Expo et Metro).
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}
