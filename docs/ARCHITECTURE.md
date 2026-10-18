@@ -127,14 +127,29 @@ Governorate ──< Locality
 - **Données** : TanStack Query gère le chargement et le cache. Chaque réponse
   est validée avec les schémas zod de `@buslive/shared`.
 
-## Hors ligne (phases 4–5)
+## Carte et prochains passages (phase 5, en place)
+
+- `GET /stops/nearby` : PostGIS cherche les arrêts dans un rayon (`ST_DWithin`)
+  et les trie par distance (`<->`), avec l'index GIST. La position envoyée n'est
+  pas stockée.
+- `GET /stops/:id/departures` : prochains passages sur 24 h, calculés par
+  `upcomingPassages` (`@buslive/shared`) en heure de Tunis (`tunisClock`). Le
+  calcul gère le calendrier du jour, le Ramadan et les bus après minuit.
+- Les passages sont renvoyés en **heures absolues** (journée de service + minutes).
+  L'app calcule le compte à rebours, qui reste donc juste depuis le cache.
+- Le champ `live` de chaque passage est réservé au temps réel (phase 6).
+
+## Hors ligne (phases 4–5, en place)
 
 - `GET /lines/:id` renvoie tout ce qu'il faut pour calculer les horaires d'une
   ligne : départs, calendriers et temps de trajet entre arrêts.
-- L'app met ce détail en cache pour les lignes favorites, et calcule les
-  horaires avec les mêmes fonctions que l'API (`@buslive/shared/schedule.ts`).
-- Sans réseau, l'app affiche les horaires théoriques et masque les données en
-  direct.
+- L'app sauvegarde son cache 24 h sur le téléphone (TanStack Query + AsyncStorage) :
+  lignes, détails des lignes, arrêts proches et prochains passages. Aucune donnée
+  personnelle n'y est sauvegardée.
+- Le détail d'une ligne calcule ses horaires sur le téléphone, avec les mêmes
+  fonctions que l'API.
+- Sans réseau, un bandeau « Hors ligne — horaires théoriques » s'affiche. Les
+  données en direct (phase 6) seront alors masquées.
 
 ## Paiements (plus tard, rien n'est codé)
 

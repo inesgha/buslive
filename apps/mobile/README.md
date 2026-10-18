@@ -46,15 +46,19 @@ Raccourcis dans le terminal Expo : `r` recharge l'app, `j` ouvre le débogueur.
 app/                      écrans (expo-router : un fichier = un écran)
   _layout.tsx             racine : police, langue, thème, session, navigation
   (tabs)/                 barre d'onglets : Carte · Lignes · Signaler · Alertes · Profil
+    index.tsx             carte : arrêts proches, prochains passages
+  lines/[id].tsx          détail d'une ligne : tracé, arrêts, horaires du jour
   auth/login.tsx          connexion (fenêtre modale)
   auth/register.tsx       inscription (fenêtre modale)
 src/
-  api/                    appels à l'API (validés avec les schémas zod partagés)
+  api/                    appels à l'API (validés avec les schémas zod partagés), cache hors ligne
   auth/                   session, stockage sécurisé des jetons, messages d'erreur
   components/             composants d'interface réutilisables
+  hooks/                  heure de Tunis, position, état du réseau
   i18n/                   traductions fr/ar, sens d'écriture (RTL)
   storage/                préférences (langue, thème)
-  theme/                  couleurs, police, contrastes
+  theme/                  couleurs, police, contrastes, style de carte sombre
+  time/                   formatage des distances et des heures (« dans 5 min »)
 ```
 
 ## À savoir
@@ -75,6 +79,15 @@ src/
   la fois** (sinon l'API révoquerait la session).
 - **Variables `EXPO_PUBLIC_*`** : intégrées dans l'app, donc lisibles par tous.
   Jamais de secret dedans.
+- **Heures** : toujours avec `tunisClock()` / `useServiceClock()` (heure de Tunis),
+  jamais avec l'heure du téléphone. Un passage est une heure absolue
+  (`serviceDate` + `passingMinutes`) : `formatPassage` en fait « dans 5 min ».
+- **Hors ligne** : le cache (lignes, arrêts proches, passages) est sauvegardé
+  24 h sur le téléphone. Pour sauvegarder un nouveau type de données, ajouter sa
+  clé dans `shouldPersistQuery` (`src/api/queryClient.ts`) — jamais de données
+  personnelles.
+- **Carte** : Google Maps fonctionne dans Expo Go sans clé. Pour une version
+  publiée (build), il faudra une clé « Maps SDK for Android » (phase 11).
 
 ## Scripts
 

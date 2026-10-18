@@ -667,3 +667,134 @@ feat(mobile): squelette de l'app Expo (navigation, thème, fr/ar RTL, connexion)
 - client API validé par les schémas zod partagés, liste des lignes depuis l'API
 - connexion / inscription, jetons dans expo-secure-store, rafraîchissement unique
 ```
+
+---
+
+## Phase 5 — Écran Carte : arrêts proches et prochains bus (18/10/2026)
+
+### Ce qui a été fait et pourquoi
+
+**Partagé (`@buslive/shared`)**
+
+- **`tunisClock()`** donne l'heure de Tunis (Intl, fuseau `Africa/Tunis`, avec un
+  repli sur UTC+1 puisque la Tunisie n'a plus d'heure d'été). Les horaires ne
+  dépendent jamais du fuseau du serveur ou du téléphone.
+- **`upcomingPassages()`** calcule les prochains passages à un arrêt, tous sens
+  confondus. Il gère le calendrier du jour (dont le Ramadan) et les bus après
+  minuit, rattachés à la journée de la veille, et regarde jusqu'au lendemain.
+  L'API et le mobile hors ligne utilisent cette même fonction.
+- `distanceMeters()` (haversine), et les schémas `NearbyStop`, `StopPassage` et
+  `StopDepartures`.
+
+**API**
+
+- **`GET /stops/nearby`** :
+  - PostGIS filtre les arrêts dans le rayon (`ST_DWithin`) et les trie par
+    distance (`<->`), avec l'index GIST ;
+  - rayon ≤ 3 km et au plus 50 résultats ;
+  - **la position n'est ni stockée ni journalisée**.
+- **`GET /stops/:id/departures`** : prochains passages sur 24 h, renvoyés en
+  **heures absolues** (journée de service + minutes). L'app calcule le compte à
+  rebours elle-même, qui reste donc juste depuis le cache hors ligne. Le champ
+  `live: null` est réservé à la phase 6.
+- Nouveau `StopsService`, et filtres de visibilité regroupés dans
+  `network.filters.ts`.
+
+**Mobile**
+
+- **Écran Carte** :
+  - Google Maps (react-native-maps), avec un style sombre en mode sombre ;
+  - position avec la permission « pendant l'utilisation » seulement ;
+  - si la permission est refusée, la carte se centre sur Mahdia ;
+  - marqueurs jaunes pour les arrêts, liste des arrêts proches (distance et
+    lignes), et bouton « Rechercher dans cette zone » quand on déplace la
+    carte ;
+  - en touchant un arrêt : ses prochains passages, avec un compte à rebours
+    mis à jour toutes les 30 s et un rechargement chaque minute.
+- **Écran Détail d'une ligne** (ajouté à cette phase) :
+  - accessible depuis l'onglet Lignes ;
+  - choix du sens, tracé sur une petite carte, et arrêts dans l'ordre avec
+    leur prochain passage ;
+  - départs du jour, ceux déjà passés étant grisés ;
+  - **tout est calculé sur le téléphone** à partir du détail de la ligne.
+- **Hors ligne** :
+  - cache TanStack Query sauvegardé 24 h dans AsyncStorage, limité aux lignes,
+    aux arrêts proches et aux passages (rien de personnel) ;
+  - bandeau « Hors ligne — horaires théoriques », grâce à NetInfo ;
+  - les passages déjà passés sont retirés du cache affiché.
+- Formatage traduit des distances (« 350 m », « 1,2 km » ; « 350 م »,
+  « 1,2 كم ») et des heures (« dans 12 min », « à 14:30 », « demain à 06:30 »).
+
+### Écarts par rapport au plan
+
+- Aucun dans le périmètre. L'écran Détail d'une ligne a été ajouté, comme tu
+  l'as validé. La recherche d'arrêt par nom reste à faire plus tard.
+- **Améliorations trouvées en cours de route** :
+  - le centre de recherche est **déduit** (choix manuel, sinon position, sinon
+    Mahdia) au lieu d'être recopié dans un état par un `useEffect` ;
+  - 999 m s'affiche « 1 km » plutôt que « 1000 m ».
+
+### Fichiers créés ou modifiés
+
+```
+packages/shared/src/clock.ts, passages.ts, passages.test.ts (créés)
+packages/shared/src/geo.ts (+ distanceMeters), geo.test.ts, network.ts (schémas), index.ts
+apps/api/src/network/stops.service.ts, network.filters.ts (créés)
+apps/api/src/network/network.controller.ts, network.service.ts, network.module.ts
+apps/api/test/network.e2e-test.ts (11 tests ajoutés)
+apps/mobile/app/(tabs)/index.tsx (carte), (tabs)/lines.tsx, lines/[id].tsx (créé), _layout.tsx
+apps/mobile/src/api/network.ts, queryClient.ts (+ test)
+apps/mobile/src/components/NearbyStopRow.tsx, PassageRow.tsx (+ test), StopPassagesPanel.tsx,
+                           StopMarker.tsx, OfflineBanner.tsx (créés), LineBadge.tsx (taille)
+apps/mobile/src/hooks/useServiceClock.ts, useUserLocation.ts, useIsOnline.ts (créés)
+apps/mobile/src/time/format.ts (+ test), src/theme/mapStyle.ts (créés)
+apps/mobile/src/i18n/locales/fr.json, ar.json
+apps/mobile/app.json (plugin expo-location), package.json, jest.setup.cjs (NetInfo)
+apps/api/README.md, apps/mobile/README.md, CLAUDE.md, docs/ARCHITECTURE.md, JOURNAL.md, pnpm-lock.yaml
+```
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm db:up
+pnpm dev:api        # terminal 1
+pnpm dev:mobile     # terminal 2 → Expo Go → onglet Carte
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e
+```
+
+Résultats obtenus :
+
+- lint, format et typecheck sans erreur ;
+- tests unitaires : 54 dans shared, 36 dans l'API et 63 dans le mobile ;
+  tests e2e : 50 ;
+- `expo-doctor` : 20 vérifications sur 20, et le bundle Android se construit
+  (5,1 Mo) ;
+- essai réel sur l'API (dimanche 18/10, 14:59 à Tunis) : à « Ksour Essef –
+  Centre », la ligne 10 passe à 17:30 (vers Ksour Essef) et à 18:04 (vers
+  Mahdia), et la ligne 11, sans service le dimanche, n'apparaît que lundi.
+  C'est exact au regard des horaires de démonstration.
+
+**Pas encore testé sur un vrai téléphone** : carte, permission de localisation,
+mode hors ligne et RTL sont à vérifier sur ton Android.
+
+### À configurer soi-même
+
+- Comme en phase 4 : pare-feu (ports 3000 et 8081) et Expo Go, pour essayer
+  sur le téléphone.
+- **Pour une version publiée (phase 11)** : une clé Google « Maps SDK for
+  Android », dans un projet Google Cloud. Elle n'est pas nécessaire dans Expo
+  Go.
+- **Pour tester le mode hors ligne** : ouvrir la carte et une ligne avec le
+  réseau, passer en mode avion, puis rouvrir l'app.
+
+### Message de commit proposé
+
+```
+feat(map): carte des arrêts proches, prochains passages et détail des lignes
+
+- API : /stops/nearby (PostGIS ST_DWithin + tri par distance) et /stops/:id/departures
+- calcul partagé des prochains passages (heure de Tunis, Ramadan, bus après minuit)
+- écran Carte : position, arrêts proches, prochains passages avec compte à rebours
+- écran Détail d'une ligne : tracé, arrêts et prochain passage, départs du jour
+- cache hors ligne persistant (24 h) et bandeau « horaires théoriques »
+```

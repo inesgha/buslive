@@ -9,6 +9,10 @@ import {
   type LineSummary,
   LineSummarySchema,
   minutesToTime,
+  type NearbyStop,
+  NearbyStopSchema,
+  type StopDepartures,
+  StopDeparturesSchema,
   StopDetailSchema,
 } from '@buslive/shared';
 import request from 'supertest';
@@ -242,6 +246,102 @@ describe('Réseau (e2e)', () => {
         where: { code: 'salakta-plage' },
         data: { status: 'ACTIVE' },
       });
+    });
+  });
+
+  describe('GET /stops/nearby', () => {
+    // Point : gare routière de Mahdia.
+    const nearGare = 'lat=35.4978&lng=11.0473';
+
+    it('renvoie les arrêts du rayon, du plus proche au plus loin', async () => {
+      const response = await http().get(`/api/v1/stops/nearby?${nearGare}&radius=1500`).expect(200);
+      expect(z.array(NearbyStopSchema).safeParse(response.body).success).toBe(true);
+      const stops = response.body as NearbyStop[];
+      expect(stops.map((stop) => stop.code)).toEqual([
+        'mahdia-gare-routiere',
+        'mahdia-centre-ville',
+        'mahdia-hopital',
+      ]);
+      const distances = stops.map((stop) => stop.distanceMeters);
+      expect(distances).toEqual([...distances].sort((a, b) => a - b));
+      expect(distances[0]).toBe(0);
+      expect(stops[0]?.lines.map((line) => line.code)).toEqual(['1', '2', '10']);
+    });
+
+    it('respecte le rayon par défaut (800 m) et la limite', async () => {
+      const byDefault = await http().get(`/api/v1/stops/nearby?${nearGare}`).expect(200);
+      expect((byDefault.body as NearbyStop[]).map((stop) => stop.code)).toEqual([
+        'mahdia-gare-routiere',
+      ]);
+      const limited = await http()
+        .get(`/api/v1/stops/nearby?${nearGare}&radius=3000&limit=2`)
+        .expect(200);
+      expect(limited.body).toHaveLength(2);
+    });
+
+    it('ne renvoie rien loin du réseau (Tunis)', async () => {
+      await http().get('/api/v1/stops/nearby?lat=36.8065&lng=10.1815').expect(200).expect([]);
+    });
+
+    it.each([
+      ['lat=abc&lng=11', 'latitude invalide'],
+      ['lng=11', 'latitude manquante'],
+      [`lat=35.5&lng=11&radius=10000`, 'rayon trop grand'],
+      [`lat=35.5&lng=11&limit=500`, 'limite trop grande'],
+    ])('refuse « %s » (%s) avec 400', async (query) => {
+      await http().get(`/api/v1/stops/nearby?${query}`).expect(400);
+    });
+  });
+
+  describe('GET /stops/:id/departures', () => {
+    async function departuresAt(stopCode: string, at: string, limit?: number) {
+      const stop = await testApp.prisma.stop.findUniqueOrThrow({ where: { code: stopCode } });
+      const query = new URLSearchParams({ at, ...(limit && { limit: String(limit) }) });
+      const response = await http().get(`/api/v1/stops/${stop.id}/departures?${query}`).expect(200);
+      expect(StopDeparturesSchema.safeParse(response.body).success).toBe(true);
+      return response.body as StopDepartures;
+    }
+
+    it('calcule les prochains passages (lundi 07:50, Ksour Essef – Centre)', async () => {
+      // 06:50 UTC = 07:50 à Tunis.
+      const { passages } = await departuresAt('ksour-essef-centre', '2026-10-19T06:50:00Z', 4);
+      expect(passages.map((p) => minutesToTime(p.passingMinutes))).toEqual([
+        '09:00', // ligne 10 vers Ksour Essef (départ 08:30 + 30 min) et…
+        '09:00', // … ligne 11 vers Salakta (départ 09:00, terminus)
+        '09:19', // ligne 10 vers Mahdia (départ 09:15 + 4 min)
+        '09:43', // ligne 11 vers Ksour Essef (départ 09:30 + 13 min)
+      ]);
+      expect(passages.every((p) => p.serviceDate === '2026-10-19' && p.live === null)).toBe(true);
+      expect(new Set(passages.map((p) => p.line.code))).toEqual(new Set(['10', '11']));
+    });
+
+    it('utilise les horaires du Ramadan pendant le Ramadan', async () => {
+      // Lundi 15/02/2027, 07:00 à Tunis : ligne 10 en horaires Ramadan (07:30 → 08:00 à l'arrêt).
+      const { passages } = await departuresAt('ksour-essef-centre', '2027-02-15T06:00:00Z');
+      const line10 = passages.filter(
+        (p) => p.line.code === '10' && p.direction.direction === 'OUTBOUND',
+      );
+      expect(minutesToTime(line10[0]!.passingMinutes)).toBe('08:00');
+      // La ligne 11 n'a pas d'horaires Ramadan : ses horaires de semaine s'appliquent.
+      const line11 = passages.filter(
+        (p) => p.line.code === '11' && p.direction.direction === 'OUTBOUND',
+      );
+      expect(minutesToTime(line11[0]!.passingMinutes)).toBe('07:00');
+    });
+
+    it('passe au lendemain le soir après le dernier bus', async () => {
+      // Lundi 23:00 à Tunis : plus de bus, les premiers passages sont mardi.
+      const { passages } = await departuresAt('ksour-essef-centre', '2026-10-19T22:00:00Z', 1);
+      expect(passages[0]?.serviceDate).toBe('2026-10-20');
+      expect(minutesToTime(passages[0]!.passingMinutes)).toBe('06:30');
+    });
+
+    it('répond 404 pour un arrêt inconnu et 400 pour une date invalide', async () => {
+      await http().get(`/api/v1/stops/${randomUUID()}/departures`).expect(404);
+      const stop = await testApp.prisma.stop.findUniqueOrThrow({
+        where: { code: 'salakta-plage' },
+      });
+      await http().get(`/api/v1/stops/${stop.id}/departures?at=hier`).expect(400);
     });
   });
 });

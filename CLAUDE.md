@@ -93,6 +93,14 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
 - Configuration locale dans `apps/mobile/.env.local` (pas `.env` : Expo refuse
   `REACT_NATIVE_PACKAGER_HOSTNAME` hors d'un fichier `.local`). Le PC a des
   cartes réseau VMware/WSL : `REACT_NATIVE_PACKAGER_HOSTNAME` force l'IP Wi-Fi.
+- Carte : `react-native-maps` (Google Maps, sans clé dans Expo Go ; clé Android
+  à configurer pour les builds de production). Marqueurs personnalisés avec
+  `tracksViewChanges={false}` (et la sélection dans la `key` pour les redessiner).
+  Localisation : `expo-location`, permission « pendant l'utilisation » seulement.
+- Hors ligne : cache TanStack Query persisté dans AsyncStorage (24 h), seulement
+  les clés listées dans `shouldPersistQuery` (`src/api/queryClient.ts`). Clés de
+  cache centralisées dans `queryKeys` (`src/api/network.ts`). Bandeau
+  `OfflineBanner` (NetInfo). Changer `buster` si le format en cache change.
 - Tests : `jest-expo` + Testing Library 14 (**`render` est asynchrone : `await render(…)`**).
   Simulations d'AsyncStorage et d'expo-secure-store dans `jest.setup.cjs`.
 - Vérifier que l'app s'assemble sans téléphone :
@@ -135,13 +143,21 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   par défaut et voudrait la supprimer). Le tracé `line_directions.shape` est
   écrit par le seed (lignes droites entre arrêts, à remplacer par un vrai tracé).
 - **Réseau** (`src/network/`) : routes publiques `GET /governorates`, `/lines`,
-  `/lines/:id`, `/stops/:id`. Seuls les éléments `ACTIVE` d'un gouvernorat actif
-  sont visibles (filtres `VISIBLE_*` dans `network.service.ts`).
+  `/lines/:id`, `/stops/nearby`, `/stops/:id/departures`, `/stops/:id`. Seuls les
+  éléments `ACTIVE` d'un gouvernorat actif sont visibles (filtres `VISIBLE_*` dans
+  `network.filters.ts`). `stops/nearby` doit rester déclarée AVANT `stops/:id`.
+  Arrêts proches : `ST_DWithin` + tri `<->` (index GIST), paramètres SQL castés
+  explicitement (`::double precision`). La position reçue n'est jamais stockée.
 - **Horaires** : minutes depuis minuit (heure de Tunis), dates « AAAA-MM-JJ ».
-  Les calculs (`departuresForDate`, `passingMinutes`…) sont dans
-  `@buslive/shared/schedule.ts`, pour que l'API et le mobile (hors ligne)
-  calculent la même chose. Calendrier de plus haute priorité = celui qui l'emporte
-  (ex. Ramadan).
+  Les calculs sont dans `@buslive/shared` (`schedule.ts`, `passages.ts`,
+  `clock.ts`), pour que l'API et le mobile (hors ligne) calculent la même chose.
+  Calendrier de plus haute priorité = celui qui l'emporte (ex. Ramadan). Un bus
+  après minuit (≥ 1440) appartient à la journée de service de la veille.
+  `tunisClock()` donne l'heure de Tunis (Intl, repli UTC+1) : ne jamais utiliser
+  l'heure locale du serveur ou du téléphone pour les horaires.
+- **Prochains passages** : renvoyés en heures ABSOLUES (`serviceDate` +
+  `passingMinutes`) ; le compte à rebours est calculé côté app (reste juste depuis
+  le cache hors ligne). Champ `live: null` réservé au temps réel (phase 6).
 - **Seed** (`pnpm --filter @buslive/api db:seed`) : idempotent (upsert par code).
   Les 24 gouvernorats sont des données réelles ; `prisma/seed/data/mahdia-demo.ts`
   contient des **données de test inventées** (lignes, horaires) à remplacer. En

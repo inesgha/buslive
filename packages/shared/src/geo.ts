@@ -36,3 +36,20 @@ export function isInTunisia(point: GeoPoint): boolean {
 export const TunisianGeoPointSchema = GeoPointSchema.refine(isInTunisia, {
   message: 'La position doit se trouver en Tunisie.',
 });
+
+const EARTH_RADIUS_METERS = 6_371_000;
+
+/**
+ * Distance à vol d'oiseau entre deux points, en mètres (formule de haversine).
+ * Suffisante côté app (quelques mètres d'écart) ; les calculs précis et les
+ * recherches se font dans PostGIS côté API.
+ */
+export function distanceMeters(a: GeoPoint, b: GeoPoint): number {
+  const toRad = (degrees: number) => (degrees * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(h));
+}

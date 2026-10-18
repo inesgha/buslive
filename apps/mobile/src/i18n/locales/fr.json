@@ -20,7 +20,11 @@
   },
   "map": {
     "title": "Carte en direct",
-    "placeholder": "La carte des bus en temps réel arrive bientôt."
+    "nearbyStops": "Arrêts proches",
+    "noStopsNearby": "Aucun arrêt dans les environs.",
+    "searchHere": "Rechercher dans cette zone",
+    "locationDenied": "Position non autorisée : la carte est centrée sur Mahdia.",
+    "stopsError": "Impossible de charger les arrêts proches."
   },
   "lines": {
     "title": "Lignes",
@@ -81,5 +85,31 @@
       "displayNameTooLong": "Au plus {{max}} caractères.",
       "displayNameInvalid": "Le nom contient des caractères invalides."
     }
+  },
+  "stop": {
+    "nextDepartures": "Prochains passages",
+    "noDepartures": "Aucun passage prévu dans les prochaines 24 h.",
+    "departuresError": "Impossible de charger les passages.",
+    "close": "Fermer"
+  },
+  "time": {
+    "now": "Maintenant",
+    "inMinutes": "dans {{count}} min",
+    "at": "à {{time}}",
+    "tomorrowAt": "demain à {{time}}"
+  },
+  "units": {
+    "meters": "{{value}} m",
+    "kilometers": "{{value}} km"
+  },
+  "lineDetail": {
+    "stops": "Arrêts",
+    "nextPassage": "Prochain passage",
+    "todayDepartures": "Départs du jour depuis le terminus",
+    "noServiceToday": "Pas de service aujourd’hui.",
+    "error": "Impossible de charger la ligne."
+  },
+  "offline": {
+    "banner": "Hors ligne — horaires théoriques"
   }
 }

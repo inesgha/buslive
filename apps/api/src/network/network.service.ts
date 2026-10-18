@@ -2,6 +2,7 @@ import type { Governorate, LineDetail, LineSummary, StopDetail } from '@buslive/
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { ACTIVE_GOVERNORATE, VISIBLE_LINE, VISIBLE_STOP } from './network.filters';
 import {
   compareLineCodes,
   toDirectionSummary,
@@ -10,15 +11,6 @@ import {
   toServiceCalendar,
   toStopSummary,
 } from './network.mapper';
-
-/**
- * Filtres « visible publiquement » : seuls les éléments validés (ACTIVE) d'un
- * gouvernorat activé sont renvoyés. Les propositions en attente (PENDING) et
- * les gouvernorats pas encore ouverts restent invisibles.
- */
-const ACTIVE_GOVERNORATE = { isActive: true } as const;
-const VISIBLE_LINE = { status: 'ACTIVE', governorate: ACTIVE_GOVERNORATE } as const;
-const VISIBLE_STOP = { status: 'ACTIVE', governorate: ACTIVE_GOVERNORATE } as const;
 
 @Injectable()
 export class NetworkService {

@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 
 import { NetworkError } from '@/api/errors';
-import { fetchLines } from '@/api/network';
+import { fetchLines, queryKeys } from '@/api/network';
 import { EmptyState } from '@/components/EmptyState';
 import { LineRow } from '@/components/LineRow';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { Screen } from '@/components/Screen';
 import { currentLocale } from '@/i18n';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -17,7 +19,7 @@ export default function LinesScreen() {
   const { colors } = useTheme();
   const locale = currentLocale();
   const { data, error, isPending, isRefetching, refetch } = useQuery({
-    queryKey: ['lines'],
+    queryKey: queryKeys.lines,
     queryFn: fetchLines,
   });
 
@@ -50,10 +52,18 @@ export default function LinesScreen() {
 
   return (
     <Screen>
+      <OfflineBanner />
       <FlatList
         data={data}
         keyExtractor={(line) => line.id}
-        renderItem={({ item }) => <LineRow line={item} locale={locale} />}
+        renderItem={({ item }) => (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/lines/[id]', params: { id: item.id } })}
+          >
+            <LineRow line={item} locale={locale} />
+          </Pressable>
+        )}
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl

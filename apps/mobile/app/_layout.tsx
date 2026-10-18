@@ -4,7 +4,7 @@ import { ReadexPro_400Regular } from '@expo-google-fonts/readex-pro/400Regular';
 import { ReadexPro_500Medium } from '@expo-google-fonts/readex-pro/500Medium';
 import { ReadexPro_600SemiBold } from '@expo-google-fonts/readex-pro/600SemiBold';
 import { ReadexPro_700Bold } from '@expo-google-fonts/readex-pro/700Bold';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
 import {
   DarkTheme,
@@ -19,7 +19,12 @@ import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { queryClient } from '@/api/queryClient';
+import {
+  OFFLINE_MAX_AGE_MS,
+  queryClient,
+  queryPersister,
+  shouldPersistQuery,
+} from '@/api/queryClient';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { initI18n } from '@/i18n';
 import { ensureDirection } from '@/i18n/direction';
@@ -58,7 +63,17 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        {/* Cache des données sauvegardé sur le téléphone : l'app reste utile hors ligne. */}
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister: queryPersister,
+            maxAge: OFFLINE_MAX_AGE_MS,
+            // À changer si le format des données en cache change (invalide l'ancien cache).
+            buster: 'v1',
+            dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+          }}
+        >
           <ThemeProvider>
             <AuthProvider>
               <ThemedNavigation>
@@ -66,7 +81,7 @@ export default function RootLayout() {
               </ThemedNavigation>
             </AuthProvider>
           </ThemeProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -118,6 +133,8 @@ function RootStack() {
         name="auth/register"
         options={{ title: t('auth.registerTitle'), presentation: 'modal' }}
       />
+      {/* Le titre (numéro et nom de la ligne) est fixé par l'écran lui-même. */}
+      <Stack.Screen name="lines/[id]" options={{ title: '' }} />
     </Stack>
   );
 }

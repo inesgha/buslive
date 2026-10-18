@@ -127,3 +127,63 @@ export const LinesQuerySchema = z.object({
   governorate: GovernorateCodeSchema.optional(),
 });
 export type LinesQuery = z.infer<typeof LinesQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// Arrêts proches et prochains passages (phase 5)
+// ---------------------------------------------------------------------------
+
+/** Paramètres de GET /stops/nearby. Le rayon et le nombre sont plafonnés. */
+export const NearbyStopsQuerySchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+  /** Rayon de recherche en mètres. */
+  radius: z.coerce.number().int().min(50).max(3000).default(800),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type NearbyStopsQuery = z.infer<typeof NearbyStopsQuerySchema>;
+
+/** Ligne vue depuis un arrêt (de quoi afficher sa pastille). */
+export const LineBadgeSchema = z.object({
+  id: z.uuid(),
+  code: z.string(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+});
+export type LineBadgeInfo = z.infer<typeof LineBadgeSchema>;
+
+export const NearbyStopSchema = StopSummarySchema.extend({
+  /** Distance à vol d'oiseau depuis le point demandé, en mètres. */
+  distanceMeters: z.number().nonnegative(),
+  lines: z.array(LineBadgeSchema),
+});
+export type NearbyStop = z.infer<typeof NearbyStopSchema>;
+
+/** Paramètres de GET /stops/:id/departures. */
+export const StopDeparturesQuerySchema = z.object({
+  /** Instant de référence (ISO 8601). Par défaut : maintenant. Utile aux tests. */
+  at: z.iso.datetime({ offset: true }).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(60),
+});
+export type StopDeparturesQuery = z.infer<typeof StopDeparturesQuerySchema>;
+
+/**
+ * Un passage prévu à un arrêt. L'heure est ABSOLUE (journée de service +
+ * minutes) : l'app calcule elle-même « dans 5 min », ce qui reste juste même
+ * si la réponse vient du cache hors ligne.
+ */
+export const StopPassageSchema = z.object({
+  line: LineBadgeSchema.extend({ nameFr: z.string(), nameAr: z.string() }),
+  direction: DirectionSummarySchema,
+  serviceDate: z.iso.date(),
+  passingMinutes: z.number().int().nonnegative(),
+  /** Données en temps réel (position, retard) : arrivent en phase 6. */
+  live: z.null(),
+});
+export type StopPassage = z.infer<typeof StopPassageSchema>;
+
+export const StopDeparturesSchema = z.object({
+  stopId: z.uuid(),
+  /** Instant de calcul (ISO 8601). */
+  generatedAt: z.iso.datetime(),
+  passages: z.array(StopPassageSchema),
+});
+export type StopDepartures = z.infer<typeof StopDeparturesSchema>;

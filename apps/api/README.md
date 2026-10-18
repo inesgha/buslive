@@ -21,12 +21,14 @@ pnpm dev:api                                # API + rechargement automatique
 
 ## Réseau (lecture publique)
 
-| Route                                 | Rôle                                                        |
-| ------------------------------------- | ----------------------------------------------------------- |
-| `GET /api/v1/governorates`            | Gouvernorats ouverts dans l'app                             |
-| `GET /api/v1/lines?governorate=TN-53` | Lignes actives (filtre facultatif par gouvernorat)          |
-| `GET /api/v1/lines/:id`               | Détail : sens, arrêts ordonnés, tracé, départs, calendriers |
-| `GET /api/v1/stops/:id`               | Arrêt et lignes qui le desservent                           |
+| Route                                               | Rôle                                                        |
+| --------------------------------------------------- | ----------------------------------------------------------- |
+| `GET /api/v1/governorates`                          | Gouvernorats ouverts dans l'app                             |
+| `GET /api/v1/lines?governorate=TN-53`               | Lignes actives (filtre facultatif par gouvernorat)          |
+| `GET /api/v1/lines/:id`                             | Détail : sens, arrêts ordonnés, tracé, départs, calendriers |
+| `GET /api/v1/stops/nearby?lat=&lng=&radius=&limit=` | Arrêts proches, du plus proche au plus loin (rayon ≤ 3 km)  |
+| `GET /api/v1/stops/:id/departures?at=&limit=`       | Prochains passages (24 h, heure de Tunis)                   |
+| `GET /api/v1/stops/:id`                             | Arrêt et lignes qui le desservent                           |
 
 Seuls les éléments **validés** (`ACTIVE`) d'un gouvernorat **activé** sont
 renvoyés. Le détail d'une ligne contient tout ce qu'il faut pour calculer les
@@ -35,7 +37,12 @@ horaires sans réseau, avec les fonctions de `@buslive/shared` :
 ```ts
 departuresForDate(direction.departures, line.calendars, '2026-10-19'); // départs du jour
 passingMinutes(departure, stop.minutesFromStart); // heure à un arrêt
+upcomingPassages(sources, calendars, tunisClock()); // prochains passages (minuit compris)
 ```
+
+Les prochains passages sont renvoyés en **heures absolues** (`serviceDate` +
+`passingMinutes`) : l'app calcule « dans 5 min » elle-même, ce qui reste juste
+depuis le cache hors ligne. Le paramètre `at` (instant ISO 8601) sert aux tests.
 
 ### Données (seed)
 

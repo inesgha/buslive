@@ -45,7 +45,15 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BusLive utilise ta position pour afficher les arrêts et les bus proches de toi.",
+          "locationAlwaysPermission": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
     ]
   }
 }

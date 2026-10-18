@@ -1,4 +1,4 @@
-import { GeoPointSchema, isInTunisia, TunisianGeoPointSchema } from './geo';
+import { distanceMeters, GeoPointSchema, isInTunisia, TunisianGeoPointSchema } from './geo';
 
 describe('GeoPointSchema', () => {
   it('accepte un point valide', () => {
@@ -28,5 +28,23 @@ describe('isInTunisia / TunisianGeoPointSchema', () => {
   it('rejette une position hors de Tunisie', () => {
     expect(isInTunisia(paris)).toBe(false);
     expect(TunisianGeoPointSchema.safeParse(paris).success).toBe(false);
+  });
+});
+
+describe('distanceMeters', () => {
+  it('donne 0 pour un même point', () => {
+    expect(
+      distanceMeters({ latitude: 35.5, longitude: 11 }, { latitude: 35.5, longitude: 11 }),
+    ).toBe(0);
+  });
+
+  it('calcule ≈ 11,4 km entre Mahdia et Ksour Essef (comme PostGIS)', () => {
+    const km =
+      distanceMeters(
+        { latitude: 35.5047, longitude: 11.0622 },
+        { latitude: 35.4181, longitude: 10.9947 },
+      ) / 1000;
+    expect(km).toBeGreaterThan(11.2);
+    expect(km).toBeLessThan(11.6);
   });
 });

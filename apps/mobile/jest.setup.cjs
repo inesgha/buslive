@@ -22,3 +22,8 @@ jest.mock('expo-secure-store', () => {
     __reset: () => store.clear(),
   };
 });
+
+// NetInfo (état du réseau) : simulation fournie par la bibliothèque (en ligne).
+jest.mock('@react-native-community/netinfo', () =>
+  require('@react-native-community/netinfo/jest/netinfo-mock.js'),
+);

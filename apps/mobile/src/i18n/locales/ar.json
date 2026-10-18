@@ -20,7 +20,11 @@
   },
   "map": {
     "title": "الخريطة المباشرة",
-    "placeholder": "خريطة الحافلات في الوقت الفعلي قريبًا."
+    "nearbyStops": "المحطات القريبة",
+    "noStopsNearby": "لا توجد محطات قريبة.",
+    "searchHere": "البحث في هذه المنطقة",
+    "locationDenied": "لم يُسمح بتحديد الموقع: الخريطة متمركزة على المهدية.",
+    "stopsError": "تعذّر تحميل المحطات القريبة."
   },
   "lines": {
     "title": "الخطوط",
@@ -81,5 +85,31 @@
       "displayNameTooLong": "{{max}} حرفًا كحد أقصى.",
       "displayNameInvalid": "يحتوي الاسم على أحرف غير صالحة."
     }
+  },
+  "stop": {
+    "nextDepartures": "المواعيد القادمة",
+    "noDepartures": "لا توجد رحلات خلال الـ24 ساعة القادمة.",
+    "departuresError": "تعذّر تحميل المواعيد.",
+    "close": "إغلاق"
+  },
+  "time": {
+    "now": "الآن",
+    "inMinutes": "بعد {{count}} د",
+    "at": "على الساعة {{time}}",
+    "tomorrowAt": "غدًا على الساعة {{time}}"
+  },
+  "units": {
+    "meters": "{{value}} م",
+    "kilometers": "{{value}} كم"
+  },
+  "lineDetail": {
+    "stops": "المحطات",
+    "nextPassage": "المرور القادم",
+    "todayDepartures": "انطلاقات اليوم من المحطة الأولى",
+    "noServiceToday": "لا توجد خدمة اليوم.",
+    "error": "تعذّر تحميل الخط."
+  },
+  "offline": {
+    "banner": "غير متصل — المواعيد النظرية"
   }
 }
