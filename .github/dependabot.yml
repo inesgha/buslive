@@ -1,0 +1,55 @@
+# Propositions automatiques de mises à jour (pull requests), une fois par semaine.
+# ⚠ Plusieurs versions sont figées volontairement (voir CLAUDE.md, « Versions figées ») :
+# les montées majeures ignorées ci-dessous se décident à la main.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Africa/Tunis
+    open-pull-requests-limit: 5
+    # Correctifs et versions mineures regroupés : une seule PR à relire.
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Les versions de l'app mobile suivent le SDK Expo (npx expo install).
+      - dependency-name: 'expo*'
+      - dependency-name: 'react-native*'
+      - dependency-name: '@react-native*'
+      - dependency-name: 'react'
+      - dependency-name: 'react-dom'
+      # Figées : CLI et client à la même version exacte, 8.x pas encore stable.
+      - dependency-name: 'prisma'
+      - dependency-name: '@prisma/*'
+      # pg 9 refusera les requêtes simultanées sur une connexion, ce que fait encore
+      # Prisma 7.10 dans ses transactions (avertissement « client.query() » en test).
+      - dependency-name: 'pg'
+        update-types: ['version-update:semver-major']
+      # Versions majeures qui exigent un Node plus récent ou cassent l'outillage.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'lint-staged'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-router'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'jsdom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@nestjs/*'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directories: [/deploy]
+    schedule:
+      interval: monthly
+    ignore:
+      # Node reste sur la même version que les postes de développement.
+      - dependency-name: node
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']

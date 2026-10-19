@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { AccountModule } from './account/account.module';
 import { AdminModule } from './admin/admin.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { AuthModule } from './auth/auth.module';
@@ -14,6 +15,7 @@ import { NetworkModule } from './network/network.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProposalsModule } from './proposals/proposals.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { PrivacyModule } from './privacy/privacy.module';
 import { ReportsModule } from './reports/reports.module';
 import { RidesModule } from './rides/rides.module';
 import { TripsModule } from './trips/trips.module';
@@ -44,6 +46,8 @@ import { TripsModule } from './trips/trips.module';
     TripsModule,
     ProposalsModule,
     AdminModule,
+    AccountModule,
+    PrivacyModule,
     HealthModule,
   ],
 })

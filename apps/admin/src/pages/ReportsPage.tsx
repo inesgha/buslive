@@ -74,8 +74,14 @@ export function ReportsPage() {
                     <div className="muted">{report.stop?.nameFr ?? ''}</div>
                   </td>
                   <td>
-                    {report.author.displayName}
-                    <div className="muted">score {report.author.trustScore}</div>
+                    {report.author ? (
+                      <>
+                        {report.author.displayName}
+                        <div className="muted">score {report.author.trustScore}</div>
+                      </>
+                    ) : (
+                      <span className="muted">compte supprimé</span>
+                    )}
                   </td>
                   <td>
                     pour {report.confirmations} ({report.confirmWeight.toFixed(1)}) · contre{' '}

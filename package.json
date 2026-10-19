@@ -13,6 +13,7 @@
     "typecheck": "pnpm build:shared && pnpm -r --if-present run typecheck",
     "test": "pnpm build:shared && pnpm -r --if-present run test",
     "test:e2e": "pnpm build:shared && pnpm -r --if-present run test:e2e",
+    "test:coverage": "pnpm build:shared && pnpm --filter @buslive/shared run test:coverage && pnpm --filter @buslive/api run test:e2e:coverage",
     "dev:api": "pnpm build:shared && pnpm --filter @buslive/api run dev",
     "dev:mobile": "pnpm build:shared && pnpm --filter @buslive/mobile run start",
     "dev:admin": "pnpm build:shared && pnpm --filter @buslive/admin run dev",

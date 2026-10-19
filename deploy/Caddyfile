@@ -1,0 +1,46 @@
+# Serveur web de production. Caddy obtient et renouvelle SEUL le certificat HTTPS
+# (Let's Encrypt) pour le domaine donné dans DOMAIN (deploy/.env.production).
+#
+# Un seul domaine pour tout : l'admin (cookie SameSite=Strict) et les liens de
+# suivi fonctionnent sans configuration CORS.
+#   /api/…, /socket.io/…  → API (REST et temps réel)
+#   /t/…, /legal/…        → pages publiques servies par l'API
+#   /admin/…              → tableau de bord (fichiers statiques)
+{
+	# Journaux au format JSON, comme l'API.
+	log {
+		format json
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# En-têtes communs (l'API pose aussi les siens avec helmet).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	@api path /api/* /socket.io/* /t/* /legal/*
+	handle @api {
+		# Caddy ajoute X-Forwarded-For : l'API le lit grâce à TRUST_PROXY=1.
+		reverse_proxy api:3000
+	}
+
+	redir /admin /admin/ 308
+	handle_path /admin/* {
+		root * /srv/admin
+		header X-Frame-Options "DENY"
+		# Application à page unique : toute adresse inconnue renvoie index.html.
+		try_files {path} /index.html
+		file_server
+	}
+
+	# Page d'accueil provisoire : la politique de confidentialité.
+	handle {
+		redir * /legal/privacy 302
+	}
+}

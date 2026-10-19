@@ -35,6 +35,8 @@ function contentSecurityPolicy(apiUrl: string): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
   return {
+    // En production, l'admin est servi sous /admin/ (même domaine que l'API, voir deploy/).
+    base: env.VITE_BASE_PATH ?? '/',
     plugins: [react(), contentSecurityPolicy(env.VITE_API_URL ?? '/api/v1')],
     server: {
       port: 5173,

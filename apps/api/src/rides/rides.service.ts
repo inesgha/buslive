@@ -134,8 +134,11 @@ export class RidesService {
     return toRideDetail(await this.cancelOffer(offer, now), driverId);
   }
 
-  /** Annulation par un modérateur (annonce signalée) : mêmes effets pour les passagers. */
-  async cancelByModerator(id: string, now = new Date()): Promise<void> {
+  /**
+   * Annulation sans le conducteur : par un modérateur (annonce signalée) ou à la
+   * suppression de son compte. Mêmes effets : les passagers sont prévenus.
+   */
+  async forceCancel(id: string, now = new Date()): Promise<void> {
     await this.cancelOffer(await this.load(id), now);
   }
 

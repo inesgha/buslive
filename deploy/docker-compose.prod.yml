@@ -1,0 +1,120 @@
+# Production : un serveur (VPS), une instance de l'API.
+#   cd deploy
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# Voir docs/DEPLOIEMENT.md (première installation, mises à jour, sauvegardes).
+
+# Nom différent du docker-compose.yml de développement (« buslive ») : sinon, lancé sur
+# un poste de développement, il reprendrait le même conteneur et le même volume de base.
+name: buslive-prod
+
+# Journaux Docker limités (10 Mo × 5 fichiers par service) : le disque ne se remplit pas.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '5'
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Comme en développement (les horaires sont calculés par l'API en heure de Tunis).
+      TZ: Africa/Tunis
+      PGTZ: Africa/Tunis
+    volumes:
+      # Extensions PostGIS : créées par la migration 0_init.
+      - db-data:/var/lib/postgresql/data
+    # AUCUN port publié : la base n'est joignable que par les autres services.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  # Applique les migrations Prisma, puis s'arrête. L'API ne démarre qu'après.
+  migrate:
+    image: buslive-api:latest
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    working_dir: /app/apps/api
+    command: ['node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy']
+    env_file: .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+    logging: *logging
+
+  api:
+    image: buslive-api:latest
+    restart: unless-stopped
+    env_file: .env.production
+    volumes:
+      # Clé Firebase (compte de service), en lecture seule.
+      - ./secrets:/run/secrets:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/api/v1/health/ready').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *logging
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/caddy.Dockerfile
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      # Certificats HTTPS : à garder (Let's Encrypt limite les renouvellements).
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *logging
+
+  # Sauvegarde quotidienne de la base (format « custom » de pg_dump), gardée 14 jours.
+  backup:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/backup.sh']
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_KEEP_DAYS: '14'
+    volumes:
+      - ./backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

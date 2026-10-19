@@ -348,7 +348,7 @@ export class AdminModerationService {
   ): Promise<void> {
     const offer = await this.prisma.rideOffer.findUnique({ where: { id: offerId } });
     if (!offer) throw new NotFoundException('Trajet introuvable.');
-    if (action === 'CANCEL') await this.rides.cancelByModerator(offerId);
+    if (action === 'CANCEL') await this.rides.forceCancel(offerId);
 
     await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.rideFlag.updateMany({

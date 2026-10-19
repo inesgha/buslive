@@ -444,5 +444,19 @@
       "ACTIVE": "Approuvé",
       "REJECTED": "Non retenu"
     }
+  },
+  "privacy": {
+    "title": "Confidentialité",
+    "policy": "Politique de confidentialité",
+    "deleteAccount": "Supprimer mon compte",
+    "deleteExplanation": "Ton compte, tes favoris, tes alertes, tes notifications et tes trajets de covoiturage à venir seront supprimés. Tes signalements resteront, sans aucun lien avec toi. C’est définitif.",
+    "confirmTitle": "Supprimer ton compte ?",
+    "confirmMessage": "Cette action est définitive.",
+    "confirm": "Supprimer définitivement",
+    "deletedTitle": "Compte supprimé",
+    "deletedMessage": "Ton compte BusLive a été supprimé. Merci d’avoir aidé les autres passagers.",
+    "wrongPassword": "Mot de passe incorrect.",
+    "staffAccount": "Un compte de modération ne peut pas être supprimé ici : demande d’abord à un administrateur de retirer ton rôle.",
+    "error": "Impossible de supprimer le compte. Réessaie."
   }
 }

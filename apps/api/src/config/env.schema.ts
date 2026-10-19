@@ -53,6 +53,20 @@ export const envSchema = z
     // Chemin du fichier JSON de la clé du compte de service Firebase (secret, jamais versionné).
     // Nom standard des bibliothèques Google : les hébergeurs savent le fournir.
     GOOGLE_APPLICATION_CREDENTIALS: z.string().trim().min(1).optional(),
+
+    // --- Production (phase 11) ---
+    // text : lisible en développement ; json : une ligne JSON par événement (production).
+    LOG_FORMAT: z.enum(['text', 'json']).default('text'),
+    // Une ligne de journal par requête (sans données personnelles).
+    LOG_REQUESTS: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+    // Nombre de proxys devant l'API (Caddy = 1). Sans cela, toutes les requêtes
+    // sembleraient venir du proxy, et la limitation par IP bloquerait tout le monde.
+    TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
+    // Adresse affichée dans la politique de confidentialité (droits des personnes).
+    CONTACT_EMAIL: z.email().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.PUSH_PROVIDER === 'fcm' && !env.GOOGLE_APPLICATION_CREDENTIALS) {
@@ -69,6 +83,14 @@ export const envSchema = z
         message: 'PUSH_PROVIDER=memory est réservé aux tests.',
       });
     }
+    // En production, l'admin web n'est servi qu'en HTTPS (cookie de session « Secure »).
+    if (env.NODE_ENV === 'production' && env.CORS_ORIGINS.some((o) => !o.startsWith('https://'))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CORS_ORIGINS'],
+        message: 'En production, les origines autorisées doivent être en https://.',
+      });
+    }
     // Garde-fou : la valeur d'exemple ne doit jamais partir en production.
     if (env.NODE_ENV === 'production' && env.JWT_ACCESS_SECRET.includes('change-moi')) {
       ctx.addIssue({
@@ -80,6 +102,31 @@ export const envSchema = z
   });
 
 export type Env = z.infer<typeof envSchema>;
+
+/**
+ * Réglages acceptés mais déconseillés en production : affichés au démarrage
+ * (l'API démarre quand même, par exemple avant que Firebase soit configuré).
+ */
+export type ProductionSettings = Pick<
+  Env,
+  'NODE_ENV' | 'PUSH_PROVIDER' | 'TRUST_PROXY' | 'LOG_FORMAT' | 'CONTACT_EMAIL'
+>;
+
+export function productionWarnings(env: ProductionSettings): string[] {
+  if (env.NODE_ENV !== 'production') return [];
+  return [
+    ...(env.PUSH_PROVIDER !== 'fcm'
+      ? ['PUSH_PROVIDER n’est pas « fcm » : aucune notification push ne sera envoyée.']
+      : []),
+    ...(env.TRUST_PROXY === 0
+      ? ['TRUST_PROXY=0 : derrière Caddy, mettre 1 (sinon la limitation par IP vise le proxy).']
+      : []),
+    ...(env.LOG_FORMAT !== 'json' ? ['LOG_FORMAT n’est pas « json ».'] : []),
+    ...(!env.CONTACT_EMAIL
+      ? ['CONTACT_EMAIL absent : la politique de confidentialité n’indique pas de contact.']
+      : []),
+  ];
+}
 
 /**
  * Fonction de validation branchée sur ConfigModule (@nestjs/config).

@@ -238,8 +238,43 @@ src/
   personnelles sauvegardées sont les favoris et les alertes : elles sont
   effacées à la déconnexion (`clearPersonalQueries`). Toute nouvelle donnée
   personnelle doit aussi être ajoutée à `PERSONAL_KEYS`.
-- **Carte** : Google Maps fonctionne dans Expo Go sans clé. Pour une version
-  publiée (build), il faudra une clé « Maps SDK for Android » (phase 11).
+- **Carte** : Google Maps fonctionne dans Expo Go sans clé. Une version publiée
+  a besoin d'une clé « Maps SDK for Android » (voir « Publier sur Google Play »).
+- **Compte** : Profil → « Confidentialité » donne accès à la politique de
+  confidentialité et à la suppression du compte (mot de passe demandé).
+
+## Publier sur Google Play
+
+### Une seule fois
+
+1. **Clé Google Maps** : Google Cloud Console → API « Maps SDK for Android » →
+   identifiants → clé restreinte aux **applications Android** (nom du paquet de
+   `app.json` + empreinte SHA-1 du certificat de signature, visible avec
+   `eas credentials` et dans la Play Console). La déclarer dans EAS :
+   `eas env:create --name GOOGLE_MAPS_API_KEY --environment production --visibility sensitive`.
+2. **Firebase** : déclarer le fichier `google-services.json` dans EAS (variable
+   de type fichier `GOOGLE_SERVICES_JSON`, environnement `production`).
+3. **Adresse de l'API** : `EXPO_PUBLIC_API_URL=https://<domaine>/api/v1` dans
+   l'environnement `production` d'EAS.
+4. **Play Console** : créer l'application, remplir le formulaire « Sécurité des
+   données » et la déclaration de localisation en arrière-plan (brouillons dans
+   `docs/SECURITE.md`), indiquer l'URL de la politique
+   (`https://<domaine>/legal/privacy`) et celle de suppression du compte
+   (`https://<domaine>/legal/account-deletion`).
+
+### À chaque version
+
+```bash
+cd apps/mobile
+eas build --profile production --platform android   # fichier .aab, numéro de version auto-incrémenté
+eas submit --profile production --platform android  # piste « test interne » de la Play Console
+```
+
+Le profil `production` (`eas.json`) produit un Android App Bundle et garde le
+numéro de version sur les serveurs d'EAS. Les permissions inutiles
+(`SYSTEM_ALERT_WINDOW`, accès au stockage) sont retirées dans `app.json`
+(`blockedPermissions`). Les icônes (`assets/`) : bus jaune sur fond bleu nuit,
+icône adaptative et monochrome Android, écran de démarrage clair et sombre.
 
 ## Scripts
 

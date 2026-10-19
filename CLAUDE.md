@@ -189,7 +189,9 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   par `pnpm install`), connexion via `@prisma/adapter-pg`, config dans
   `prisma.config.ts`. Les extensions PostgreSQL sont créées par la migration `0_init`.
   `prisma migrate dev` ne régénère plus le client : utiliser le script
-  `prisma:migrate` (qui enchaîne `generate`).
+  `prisma:migrate` (qui enchaîne `generate`). Garder `importFileExtension = "js"`
+  dans le générateur (sinon, sans tsconfig visible, comme dans Docker, les imports
+  générés finissent en `.ts` et l'API compilée ne démarre pas).
 - **Migrations, règles pour l'assistant** :
   - ne JAMAIS lancer `prisma migrate dev` sans `--create-only` hors d'un terminal
     interactif : s'il détecte un écart, il attend un nom de migration et bloque
@@ -377,6 +379,57 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   `/api/v1/health/ready` (base + PostGIS). Swagger : `/api/docs` (hors production).
 - Si Node passe à ≥ 24.9 : on pourra repasser Jest en mode CommonJS classique et
   réinstaller `@nestjs/cli`.
+- **Journaux** (`src/common/logging/`) : `LOG_FORMAT=json` en production (`JsonLogger`),
+  une ligne par requête (`requestLogger`, `LOG_REQUESTS`) avec `X-Request-Id`. Jamais
+  d'IP, de corps ni de position ; `/t/<jeton>` masqué (`redactPath`). `TRUST_PROXY=1`
+  derrière Caddy (sinon la limitation par IP vise le proxy).
+- **Sécurité testée** (`test/security.e2e-test.ts`) : toute route Swagger absente de
+  `PUBLIC_ROUTES` doit répondre 401 → une nouvelle route publique s'y ajoute
+  explicitement. Corps limité à `BODY_LIMIT` (100 Ko).
+- **Suppression de compte** (`src/account/`, `DELETE /me`, mot de passe exigé) :
+  signalements et votes gardés avec `user_id` NULL (`onDelete: SetNull`) → `report.userId`
+  et l'auteur admin sont NULLABLES (ne jamais supposer un auteur). Un MODERATOR/ADMIN
+  doit perdre son rôle avant (409). Nouvelle table liée à un utilisateur : choisir
+  son `onDelete`.
+- **Conservation** : `RETENTION_RULES` (`@buslive/shared/privacy.ts`), purge
+  quotidienne par `RetentionService` (`src/privacy/`) ; notifications et appareils
+  purgés par `NotificationsService`. Les pages `/legal/privacy` et
+  `/legal/account-deletion` (hors préfixe /api, fr/ar) affichent ces durées : les
+  garder à jour ensemble. Nouvelle table de données personnelles → lui donner une durée.
+- **GTFS** (`src/gtfs/`, `prisma/scripts/gtfs-import.ts`) : `buildImportPlan` (pur,
+  testé) puis `applyImportPlan` (une transaction, idempotent par préfixe de code).
+  Essai à blanc par défaut, `--apply` pour écrire. Voir `docs/gtfs/README.md`.
+- **Performances** : l'API est limitée par le processeur (~100 req/s mixtes par
+  instance, `docs/SECURITE.md`). Ne pas créer d'objet `Intl` dans une boucle ou un
+  tri (`localeCompare` avec options) : le créer une fois au niveau du module.
+- Avertissement de test « client.query() when the client is already executing » :
+  il vient de Prisma 7.10 (transactions), pas de notre code ; ne pas passer à `pg` 9.
+
+## Production, CI (deploy/, .github/)
+
+- VPS + Docker Compose (`deploy/docker-compose.prod.yml`) : `db` (aucun port publié),
+  `migrate` (`prisma migrate deploy` avant l'API), `api` (non-root), `caddy` (HTTPS,
+  `/api`, `/socket.io`, `/t`, `/legal` → API ; `/admin` → admin statique),
+  `backup` (pg_dump quotidien, 14 jours). Procédures : `docs/DEPLOIEMENT.md`.
+- **Une seule instance de l'API** (registre temps réel, limitation et cache des
+  alertes en mémoire) tant que Redis n'est pas en place.
+- Projet Compose de production nommé `buslive-prod` (jamais `buslive`, le nom du
+  Compose de développement : il reprendrait sa base). Dans l'image, lancer les
+  scripts avec `node_modules/.bin/tsx …` (`prisma db seed` ne trouve pas `tsx`).
+  Code en lecture seule (propriété de root), API lancée en `node`.
+- L'admin est construit avec `VITE_BASE_PATH=/admin/` (même domaine que l'API, pour
+  le cookie `SameSite=Strict`).
+- Images construites depuis la racine (`.dockerignore` exclut secrets, mobile et
+  client Prisma local). Cache pnpm BuildKit (`--mount=type=cache`) : le réseau est lent.
+- CI (`.github/workflows/ci.yml`) : format, lint, types, tests, couverture, builds,
+  `expo export`, migrations + `migrate diff --exit-code`, seed ×2, e2e. Aucun secret,
+  aucun déploiement automatique. Dependabot exclut les versions figées.
+- Couverture : seuils dans `packages/shared/jest.config.cjs` (tests unitaires) et
+  `apps/api/jest.e2e.config.cjs` (tests e2e) ; `pnpm test:coverage`.
+- App publiable : profil EAS `production` (AAB), `GOOGLE_MAPS_API_KEY` et
+  `GOOGLE_SERVICES_JSON` lus par `app.config.ts`, `blockedPermissions` dans `app.json`.
+  Brouillons Google Play (sécurité des données, localisation en arrière-plan) et
+  INPDP dans `docs/SECURITE.md`.
 
 ## Commandes
 
@@ -386,10 +439,13 @@ pnpm build            # compiler les packages
 pnpm typecheck        # vérifier les types
 pnpm test             # lancer les tests unitaires
 pnpm test:e2e         # tests de bout en bout (base Docker requise)
+pnpm test:coverage    # couverture avec seuils (shared + e2e de l'API)
 pnpm dev:api          # API en mode développement (http://localhost:3000/api/v1)
 pnpm dev:mobile       # app mobile (Expo, QR code pour Expo Go)
 pnpm --filter @buslive/api prisma:migrate   # créer / appliquer une migration
 pnpm --filter @buslive/api db:seed          # gouvernorats + réseau de démonstration
+pnpm --filter @buslive/api gtfs:import <dossier> --governorate TN-53 --prefix MAH --line-type URBAN [--apply]
+pnpm --filter @buslive/api load:test        # test de charge léger (API démarrée)
 pnpm lint             # ESLint
 pnpm format           # Prettier (écriture)
 pnpm db:up            # démarrer PostgreSQL + PostGIS

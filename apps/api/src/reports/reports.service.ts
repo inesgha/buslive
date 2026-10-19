@@ -361,12 +361,15 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
     if (count !== 1) return false;
 
     const confirmed = decision === 'CONFIRMED';
-    await this.trust.award(
-      tx,
-      report.userId,
-      confirmed ? 'REPORT_CONFIRMED' : 'REPORT_REJECTED',
-      report.id,
-    );
+    // Auteur absent : il a supprimé son compte (signalement anonymisé).
+    if (report.userId) {
+      await this.trust.award(
+        tx,
+        report.userId,
+        confirmed ? 'REPORT_CONFIRMED' : 'REPORT_REJECTED',
+        report.id,
+      );
+    }
     const votes = await tx.reportVote.findMany({ where: { reportId: report.id, source: 'USER' } });
     for (const vote of votes) {
       if (!vote.userId) continue;

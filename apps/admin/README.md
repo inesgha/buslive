@@ -49,9 +49,10 @@ sont écrits au journal).
 - **CSP** ajoutée à `index.html` au build (`vite.config.ts`) : pas de script
   intégré, images limitées au site et aux tuiles OpenStreetMap.
 - Aucune donnée n'est insérée en HTML brut (pas de `dangerouslySetInnerHTML`).
-- **En production**, servir l'admin et l'API sous le même site (ex.
-  `admin.buslive.tn` et `api.buslive.tn`), sinon le cookie `SameSite=Strict`
-  n'est pas envoyé. Ajouter l'origine de l'admin à `CORS_ORIGINS` de l'API.
+- **En production** (`deploy/`), l'admin est construit avec
+  `VITE_BASE_PATH=/admin/` et servi par Caddy sous `https://<domaine>/admin/`,
+  sur le même domaine que l'API : le cookie `SameSite=Strict` est bien envoyé.
+  L'origine `https://<domaine>` doit être dans `CORS_ORIGINS` de l'API.
 
 ## Organisation
 

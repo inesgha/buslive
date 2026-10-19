@@ -1,0 +1,5 @@
+table_name,field_name,language,translation,record_id
+stops,stop_name,ar,هيبون,A
+stops,stop_name,ar,المنطقة السياحية,B
+routes,route_long_name,ar,هيبون – السقانص,R1
+trips,trip_headsign,ar,السقانص,T1

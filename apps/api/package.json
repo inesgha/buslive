@@ -10,12 +10,15 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js",
     "test:e2e": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config jest.e2e.config.cjs",
+    "test:e2e:coverage": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config jest.e2e.config.cjs --coverage",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev && prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "user:role": "tsx prisma/scripts/set-role.ts",
+    "gtfs:import": "tsx prisma/scripts/gtfs-import.ts",
+    "load:test": "tsx test/load/load-test.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

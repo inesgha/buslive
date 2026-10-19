@@ -1,0 +1,105 @@
+# Intégration continue : vérifie chaque push et chaque pull request.
+# Aucun secret, aucun déploiement automatique (le déploiement se fait à la main,
+# voir docs/DEPLOIEMENT.md).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Un nouveau push sur la même branche annule la vérification précédente.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: '0'
+  # Même version que sur les postes de développement et dans les images Docker.
+  NODE_VERSION: '22.19.0'
+
+jobs:
+  quality:
+    name: Format, lint, types, tests unitaires, builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable
+      - name: Cache du magasin pnpm
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build:shared
+      - name: Tests unitaires (shared avec seuils de couverture)
+        run: |
+          pnpm --filter @buslive/shared run test:coverage
+          pnpm -r --filter "!@buslive/shared" --if-present run test
+      - run: pnpm build
+      - name: Assemblage de l'app mobile (sans téléphone)
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir ${{ runner.temp }}/expo-export
+      - name: Audit des dépendances (informatif)
+        run: pnpm audit --prod --audit-level high
+        continue-on-error: true
+
+  e2e:
+    name: Tests de bout en bout et migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      db:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: buslive
+          POSTGRES_PASSWORD: buslive
+          POSTGRES_DB: buslive
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U buslive -d buslive"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Valeurs de TEST uniquement (base jetable du service ci-dessus) : pas des secrets.
+      DATABASE_URL: postgresql://buslive:buslive@localhost:5432/buslive?schema=public
+      JWT_ACCESS_SECRET: ci-only-test-secret-not-used-anywhere-else-0123456789
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable
+      - name: Cache du magasin pnpm
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile --filter "@buslive/api..."
+      - run: pnpm build:shared
+      - name: Migrations sur une base vide, puis aucun écart avec schema.prisma
+        working-directory: apps/api
+        run: |
+          pnpm exec prisma migrate deploy
+          pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: 'Seed lancé deux fois (il doit être idempotent)'
+        working-directory: apps/api
+        run: |
+          pnpm db:seed
+          pnpm db:seed
+      - name: Tests e2e avec seuils de couverture (base « buslive_test » créée automatiquement)
+        run: pnpm --filter @buslive/api run test:e2e:coverage

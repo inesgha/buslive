@@ -1,0 +1,20 @@
+# Fichiers exclus des images Docker (le contexte de construction est la racine du dépôt).
+**/node_modules
+**/dist
+**/coverage
+**/.expo
+.git
+.husky
+.claude
+apps/mobile
+# Client Prisma : régénéré dans l'image par « pnpm install » (postinstall).
+apps/api/src/generated
+# Secrets : JAMAIS dans une image.
+**/.env
+**/.env.*
+!**/.env.example
+**/secrets
+**/*service-account*.json
+**/google-services.json
+deploy/.env.production
+deploy/backups

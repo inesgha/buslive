@@ -55,4 +55,6 @@ Thumbs.db
 
 # Réglages locaux de l'assistant de code
 .claude/settings.local.json
-git check-ignore .env CLAUDE.md .claude/settings.json
+
+# Déploiement : sauvegardes de la base (sur le serveur seulement)
+deploy/backups/

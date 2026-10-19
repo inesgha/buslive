@@ -227,18 +227,21 @@ me(@CurrentUser() user: AuthenticatedUser) { … }   // { id, role }
 
 ## Scripts
 
-| Script            | Effet                                                            |
-| ----------------- | ---------------------------------------------------------------- |
-| `dev`             | Compile avec `tsc-watch` et relance l'API à chaque changement    |
-| `build` / `start` | Compile dans `dist/` / lance la version compilée                 |
-| `test`            | Tests unitaires (`src/**/*.test.ts`, sans base)                  |
-| `test:e2e`        | Tests de bout en bout (`test/*.e2e-test.ts`, base `_test`)       |
-| `prisma:migrate`  | Crée et applique une migration, puis régénère le client          |
-| `prisma:deploy`   | Applique les migrations existantes (production, CI)              |
-| `prisma:generate` | Régénère le client Prisma (fait aussi par `pnpm install`)        |
-| `prisma:studio`   | Interface web pour explorer les données                          |
-| `db:seed`         | Insère les gouvernorats et le réseau de démonstration            |
-| `user:role`       | Donne un rôle à un compte : `<email> ADMIN` (ou USER, MODERATOR) |
+| Script              | Effet                                                            |
+| ------------------- | ---------------------------------------------------------------- |
+| `dev`               | Compile avec `tsc-watch` et relance l'API à chaque changement    |
+| `build` / `start`   | Compile dans `dist/` / lance la version compilée                 |
+| `test`              | Tests unitaires (`src/**/*.test.ts`, sans base)                  |
+| `test:e2e`          | Tests de bout en bout (`test/*.e2e-test.ts`, base `_test`)       |
+| `test:e2e:coverage` | Tests e2e avec couverture (échoue sous les seuils)               |
+| `prisma:migrate`    | Crée et applique une migration, puis régénère le client          |
+| `prisma:deploy`     | Applique les migrations existantes (production, CI)              |
+| `prisma:generate`   | Régénère le client Prisma (fait aussi par `pnpm install`)        |
+| `prisma:studio`     | Interface web pour explorer les données                          |
+| `db:seed`           | Insère les gouvernorats et le réseau de démonstration            |
+| `user:role`         | Donne un rôle à un compte : `<email> ADMIN` (ou USER, MODERATOR) |
+| `gtfs:import`       | Importe un réseau GTFS (essai à blanc, `--apply` pour écrire)    |
+| `load:test`         | Test de charge léger (API démarrée, voir `docs/SECURITE.md`)     |
 
 ## Organisation
 
@@ -248,7 +251,7 @@ src/
   setup-app.ts       préfixe /api/v1, helmet, CORS, Swagger (partagé avec les tests e2e)
   app.module.ts      module racine
   config/            validation des variables d'environnement (zod)
-  common/            ZodValidationPipe, zodToOpenApi, limitation des requêtes
+  common/            ZodValidationPipe, zodToOpenApi, limitation des requêtes, journaux (JSON)
   prisma/            PrismaService (connexion via @prisma/adapter-pg)
   auth/              inscription, connexion, jetons, guards et décorateurs
   live/              partage de position, registre des bus en direct, Socket.io
@@ -261,6 +264,9 @@ src/
   trips/             « Partager mon trajet » : liens de suivi et page web /t/<jeton>
   proposals/         arrêts proposés par les passagers
   admin/             tableau de bord, modération, comptes, réseau, journal
+  account/           suppression du compte (DELETE /me, anonymisation)
+  privacy/           durées de conservation (purge quotidienne), pages /legal/…
+  gtfs/              lecture et import des fichiers GTFS (fonctions pures + écriture)
   network/           gouvernorats, lignes, arrêts, horaires (lecture)
   users/             accès aux utilisateurs, PATCH /me (langue, préférences)
   health/            routes de santé (Terminus) + indicateur PostGIS
@@ -270,6 +276,8 @@ prisma/
   migrations/        migrations SQL versionnées
   seed/              données initiales (gouvernorats, réseau de démonstration)
 test/                tests e2e (base séparée « _test », créée automatiquement)
+  load/              test de charge léger
+  fixtures/          petit réseau GTFS de test
 ```
 
 ## À savoir
@@ -284,4 +292,12 @@ test/                tests e2e (base séparée « _test », créée automatiquem
   sous Node 22.
 - **Nouvelle variable d'environnement** : l'ajouter à `src/config/env.schema.ts` et
   à `.env.example`.
-- **Nouvelle table** : l'ajouter au `TRUNCATE` de `test/utils.ts`.
+- **Nouvelle table** : l'ajouter au `TRUNCATE` de `test/utils.ts`, et décider de
+  sa durée de conservation (`RETENTION_RULES`) et de ce qu'elle devient à la
+  suppression d'un compte (`onDelete`).
+- **Nouvelle route publique** : l'ajouter à `PUBLIC_ROUTES` dans
+  `test/security.e2e-test.ts` (le test vérifie que toute autre route répond 401).
+- **Journaux** : `LOG_FORMAT=json` en production (une ligne JSON par événement).
+  Ne jamais journaliser de position, de corps de requête ni d'adresse IP.
+- **Production** : voir `docs/DEPLOIEMENT.md` (image Docker, migrations au
+  démarrage, Caddy) et `docs/SECURITE.md`.

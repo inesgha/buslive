@@ -325,7 +325,31 @@ Place réservée pour les tickets et abonnements en ligne :
 
 ## Environnements
 
-| Environnement | Base de données       | Secrets                          |
-| ------------- | --------------------- | -------------------------------- |
-| Local         | Docker Compose (`db`) | `.env` (copie de `.env.example`) |
-| Production    | à définir en phase 11 | variables de l'hébergeur         |
+| Environnement | Base de données                          | Secrets                                                      |
+| ------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| Local         | Docker Compose (`db`)                    | `.env` (copie de `.env.example`)                             |
+| CI            | service PostGIS jetable (GitHub Actions) | aucun (valeurs de test)                                      |
+| Production    | VPS, Docker Compose (`deploy/`)          | `deploy/.env.production` et `deploy/secrets/` sur le serveur |
+
+## Production (phase 11, en place)
+
+```
+Internet ──443──▶ Caddy ──┬─ /api/*, /socket.io/*, /t/*, /legal/* ──▶ api ──▶ db (PostGIS)
+                          └─ /admin/* (fichiers statiques)            backup (pg_dump quotidien)
+```
+
+- **Un seul domaine** : l'admin (cookie `SameSite=Strict`), les liens de suivi
+  `/t/…` et les pages légales `/legal/…` partagent le domaine de l'API.
+- **Une seule instance de l'API** : le registre des bus en direct, la limitation
+  des requêtes et le cache des alertes sont en mémoire. Plusieurs instances
+  demanderont Redis (voir `docs/SECURITE.md`).
+- Les migrations sont appliquées par un service `migrate` avant chaque
+  démarrage de l'API. Journaux en JSON (`LOG_FORMAT=json`), sans IP ni corps.
+- **Vie privée** : durées de conservation `RETENTION_RULES`
+  (`@buslive/shared/privacy.ts`), purge quotidienne ; suppression de compte
+  `DELETE /me` (signalements et votes gardés anonymes) ; politique de
+  confidentialité servie par l'API (`/legal/privacy`).
+- **Données réelles** : import GTFS (`pnpm --filter @buslive/api gtfs:import`,
+  voir `docs/gtfs/README.md`), idempotent, avec essai à blanc par défaut.
+
+Détails : [DEPLOIEMENT.md](DEPLOIEMENT.md) et [SECURITE.md](SECURITE.md).

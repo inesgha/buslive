@@ -14,6 +14,7 @@ export * from './money';
 export * from './network';
 export * from './notifications';
 export * from './passages';
+export * from './privacy';
 export * from './reports';
 export * from './rides';
 export * from './route';

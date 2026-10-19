@@ -1,4 +1,4 @@
-import { validateEnv } from './env.schema';
+import { productionWarnings, validateEnv } from './env.schema';
 
 const validEnv = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/buslive?schema=public',
@@ -78,5 +78,35 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ ...validEnv, NODE_ENV: 'production', PUSH_PROVIDER: 'memory' }),
     ).toThrow(/PUSH_PROVIDER/);
+  });
+
+  it('refuse des origines non https en production', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        NODE_ENV: 'production',
+        JWT_ACCESS_SECRET: 'x'.repeat(40),
+        CORS_ORIGINS: 'http://admin.buslive.tn',
+      }),
+    ).toThrow(/https/);
+  });
+
+  it('avertit des réglages déconseillés en production', () => {
+    const env = validateEnv({
+      ...validEnv,
+      NODE_ENV: 'production',
+      CORS_ORIGINS: 'https://buslive.tn',
+    });
+    expect(productionWarnings(env)).toHaveLength(4);
+    expect(
+      productionWarnings({
+        ...env,
+        PUSH_PROVIDER: 'fcm',
+        TRUST_PROXY: 1,
+        LOG_FORMAT: 'json',
+        CONTACT_EMAIL: 'contact@buslive.tn',
+      }),
+    ).toEqual([]);
+    expect(productionWarnings(validateEnv(validEnv))).toEqual([]);
   });
 });

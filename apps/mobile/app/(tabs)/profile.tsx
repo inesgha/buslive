@@ -13,6 +13,7 @@ import { Card } from '@/components/Card';
 import { MyProposalsCard } from '@/components/MyProposalsCard';
 import { NotificationsCard } from '@/components/NotificationsCard';
 import { PhoneCard } from '@/components/PhoneCard';
+import { PrivacyCard } from '@/components/PrivacyCard';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TrustCard } from '@/components/TrustCard';
@@ -107,6 +108,8 @@ export default function ProfileScreen() {
           ]}
         />
       </Card>
+
+      <PrivacyCard />
     </Screen>
   );
 }

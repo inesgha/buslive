@@ -11,6 +11,9 @@ generator client {
   output       = "../src/generated/prisma"
   // NestJS tourne en CommonJS.
   moduleFormat = "cjs"
+  // Imports internes en « .js » : sans ce réglage, Prisma le déduit du tsconfig, absent
+  // quand le client est généré pendant « pnpm install » dans l'image Docker (→ « .ts »).
+  importFileExtension = "js"
 }
 
 datasource db {
@@ -411,7 +414,8 @@ enum TrustEventReason {
 /// Signalement d'un passager. Pas de texte libre (rien à modérer).
 model Report {
   id                     String       @id @default(uuid()) @db.Uuid
-  userId                 String       @map("user_id") @db.Uuid
+  /// null : l'auteur a supprimé son compte (le signalement reste, anonyme).
+  userId                 String?      @map("user_id") @db.Uuid
   type                   ReportType
   status                 ReportStatus @default(ACTIVE)
   lineId                 String       @map("line_id") @db.Uuid
@@ -441,7 +445,7 @@ model Report {
   moderatedAt            DateTime?    @map("moderated_at") @db.Timestamptz(3)
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   line      Line           @relation(fields: [lineId], references: [id], onDelete: Cascade)
   direction LineDirection? @relation(fields: [directionId], references: [id], onDelete: Cascade)
   stop      Stop?          @relation(fields: [stopId], references: [id], onDelete: Cascade)
@@ -467,7 +471,8 @@ model ReportVote {
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
 
   report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SetNull : un vote reste compté si son auteur supprime son compte.
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   /// Un seul vote par utilisateur et par signalement (plusieurs null autorisés).
   @@unique([reportId, userId])

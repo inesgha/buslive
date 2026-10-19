@@ -25,6 +25,11 @@ export function updateProfile(input: UpdateProfileInput): Promise<UserProfile> {
   return apiRequest('/me', { method: 'PATCH', body: input, auth: true, schema: UserProfileSchema });
 }
 
+/** Suppression définitive du compte (le mot de passe est redemandé). */
+export function deleteAccount(password: string) {
+  return apiRequest('/me', { method: 'DELETE', body: { password }, auth: true });
+}
+
 // --- Favoris ------------------------------------------------------------------------
 
 export function fetchFavorites(): Promise<Favorites> {

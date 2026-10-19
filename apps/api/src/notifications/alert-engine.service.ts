@@ -109,15 +109,16 @@ export class AlertEngine implements OnModuleInit, OnModuleDestroy {
     });
     if (!report) return;
 
-    // 1. L'auteur : points réellement versés (le score peut être plafonné).
-    if (report.user.notifyReportOutcome) {
+    // 1. L'auteur (s'il n'a pas supprimé son compte) : points réellement versés.
+    const authorId = report.userId;
+    if (authorId && report.user?.notifyReportOutcome) {
       const reason = status === 'CONFIRMED' ? 'REPORT_CONFIRMED' : 'REPORT_REJECTED';
       const event = await this.prisma.trustEvent.findFirst({
-        where: { reportId, userId: report.userId, reason },
+        where: { reportId, userId: authorId, reason },
         select: { delta: true },
       });
       await this.notifications.notify(
-        report.userId,
+        authorId,
         {
           type: 'REPORT_RESOLVED',
           data: {
@@ -138,7 +139,7 @@ export class AlertEngine implements OnModuleInit, OnModuleDestroy {
     const clock = tunisClock(resolvedAt);
     // L'auteur et ceux qui ont voté sont déjà au courant.
     const informed = new Set<string>([
-      report.userId,
+      ...(authorId ? [authorId] : []),
       ...report.votes.flatMap((vote) => (vote.userId ? [vote.userId] : [])),
     ]);
 

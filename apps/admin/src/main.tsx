@@ -19,7 +19,8 @@ if (!root) throw new Error('Élément #root introuvable.');
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      {/* Chemin de base (« /admin » en production), donné par Vite. */}
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
         <AuthProvider>
           <App />
         </AuthProvider>

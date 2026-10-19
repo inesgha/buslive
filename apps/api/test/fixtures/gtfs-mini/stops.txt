@@ -1,0 +1,6 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type
+A,Hiboun,35.5040,11.0610,
+B,"Zone touristique, hôtels",35.5150,11.0450,0
+C,Skanes Mahdia,35.5300,11.0300,
+D,Arrêt jamais desservi,35.5400,11.0200,
+S,Gare (station),35.5000,11.0600,1

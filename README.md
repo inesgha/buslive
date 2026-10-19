@@ -16,12 +16,17 @@ apps/
   admin/     Tableau de bord React + Vite
 packages/
   shared/    Types et schémas zod partagés
-docker/      Scripts d'initialisation de la base
-docs/        Documentation (architecture…)
+docker/      Scripts d'initialisation de la base (développement)
+deploy/      Production : images Docker, Caddy, Compose, sauvegardes
+docs/        Documentation (architecture, déploiement, sécurité, GTFS)
+.github/     Intégration continue et Dependabot
 ```
 
 Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
-étapes dans [JOURNAL.md](JOURNAL.md).
+étapes dans [JOURNAL.md](JOURNAL.md). Mise en production :
+[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md) ; sécurité, vie privée et test de
+charge : [docs/SECURITE.md](docs/SECURITE.md) ; import des vraies lignes :
+[docs/gtfs/README.md](docs/gtfs/README.md).
 
 ## Prérequis
 
@@ -113,25 +118,35 @@ Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
 
 ## Commandes utiles
 
-| Commande          | Effet                                                  |
-| ----------------- | ------------------------------------------------------ |
-| `pnpm build`      | Compile les packages                                   |
-| `pnpm typecheck`  | Vérifie les types TypeScript                           |
-| `pnpm test`       | Lance les tests unitaires Jest                         |
-| `pnpm test:e2e`   | Lance les tests de bout en bout (base démarrée)        |
-| `pnpm dev:api`    | Lance l'API avec rechargement automatique              |
-| `pnpm dev:mobile` | Lance l'app mobile (Expo, QR code pour Expo Go)        |
-| `pnpm dev:admin`  | Lance le tableau de bord admin (Vite, port 5173)       |
-| `pnpm lint`       | Analyse le code avec ESLint (`lint:fix` pour corriger) |
-| `pnpm format`     | Formate le code avec Prettier                          |
-| `pnpm db:up`      | Démarre PostgreSQL + PostGIS                           |
-| `pnpm db:psql`    | Ouvre une console SQL                                  |
-| `pnpm db:logs`    | Affiche les logs de la base                            |
-| `pnpm db:down`    | Arrête les conteneurs (les données sont conservées)    |
+| Commande             | Effet                                                  |
+| -------------------- | ------------------------------------------------------ |
+| `pnpm build`         | Compile les packages                                   |
+| `pnpm typecheck`     | Vérifie les types TypeScript                           |
+| `pnpm test`          | Lance les tests unitaires Jest                         |
+| `pnpm test:e2e`      | Lance les tests de bout en bout (base démarrée)        |
+| `pnpm test:coverage` | Couverture avec seuils (shared, et e2e de l'API)       |
+| `pnpm dev:api`       | Lance l'API avec rechargement automatique              |
+| `pnpm dev:mobile`    | Lance l'app mobile (Expo, QR code pour Expo Go)        |
+| `pnpm dev:admin`     | Lance le tableau de bord admin (Vite, port 5173)       |
+| `pnpm lint`          | Analyse le code avec ESLint (`lint:fix` pour corriger) |
+| `pnpm format`        | Formate le code avec Prettier                          |
+| `pnpm db:up`         | Démarre PostgreSQL + PostGIS                           |
+| `pnpm db:psql`       | Ouvre une console SQL                                  |
+| `pnpm db:logs`       | Affiche les logs de la base                            |
+| `pnpm db:down`       | Arrête les conteneurs (les données sont conservées)    |
 
 Interface web de la base (optionnelle) :
 `docker compose --profile tools up -d` puis <http://localhost:8080>
 (serveur `db`, identifiants du fichier `.env`).
+
+## Intégration continue
+
+À chaque push sur `main` et à chaque pull request, GitHub Actions
+(`.github/workflows/ci.yml`) vérifie le format, ESLint, les types, les tests
+unitaires, la couverture, les builds, l'assemblage de l'app mobile, les
+migrations (aucun écart avec `schema.prisma`), le seed et les tests e2e sur une
+base PostGIS jetable. Aucun secret n'est utilisé et rien n'est déployé
+automatiquement. Dependabot propose les mises à jour chaque semaine.
 
 ## Avant chaque commit
 

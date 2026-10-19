@@ -1763,3 +1763,259 @@ feat(admin): tableau de bord, modération et arrêts proposés
 - session web par cookie httpOnly SameSite=Strict, origine vérifiée, réservée aux modérateurs
 - apps/admin (React + Vite + Leaflet) ; mobile : proposer un arrêt sur place, mes propositions
 ```
+
+## Phase 11 — Tests, sécurité, préparation au déploiement (19/10/2026)
+
+Choix validés avant de commencer :
+
+- hébergement sur **un VPS avec Docker Compose** ;
+- **import GTFS** dans cette phase ;
+- **une seule instance** de l'API (Redis documenté pour plus tard) ;
+- **journaux JSON** seulement (pas de Sentry).
+
+### Ce qui a été fait et pourquoi
+
+**Audit de sécurité et durcissement (API)**
+
+- **Test de toutes les routes** (`test/security.e2e-test.ts`) : chaque route de
+  Swagger est appelée sans jeton ; si elle n'est pas dans la liste
+  `PUBLIC_ROUTES`, elle doit répondre 401. Une route publique ajoutée par
+  erreur fait donc échouer le test.
+- Corps JSON limité à **100 Ko** (413) ; délais `headersTimeout` et
+  `requestTimeout` contre les connexions lentes.
+- `TRUST_PROXY` : derrière Caddy, l'API lit la vraie IP du client (sinon la
+  limitation par IP viserait le proxy et bloquerait tout le monde).
+- En production, `CORS_ORIGINS` doit être en `https://` (refus de démarrer
+  sinon), et des avertissements s'affichent au démarrage si un réglage est
+  déconseillé (`PUSH_PROVIDER`, `TRUST_PROXY`, `LOG_FORMAT`, `CONTACT_EMAIL`).
+- **Journaux JSON** (`LOG_FORMAT=json`) : une ligne par événement et une par
+  requête (méthode, chemin, statut, durée, `requestId`). **Ni IP, ni corps, ni
+  position** ; les jetons des liens de suivi sont masqués. C'est testé.
+
+**Vie privée**
+
+- **Suppression du compte** (`DELETE /me`, mot de passe demandé, dans le Profil
+  de l'app) : les partages sont arrêtés, les trajets proposés annulés (les
+  passagers sont prévenus), puis le compte est supprimé. Les signalements et
+  les votes restent, **anonymes** (auteur à NULL), pour ne pas fausser les
+  statistiques. Un modérateur doit d'abord perdre son rôle, car le journal de
+  modération garde son nom.
+- **Durées de conservation** (`RETENTION_RULES`, dans `@buslive/shared`), avec
+  une purge quotidienne : dernière position d'un partage 7 jours, signalements
+  1 an, passages observés 400 jours, etc.
+- **Pages légales** servies par l'API, en français et en arabe :
+  `/legal/privacy` (politique de confidentialité, durées tirées du code) et
+  `/legal/account-deletion` (exigée par Google Play).
+
+**Import GTFS** (les vraies lignes, à la place des données de démonstration)
+
+- `pnpm --filter @buslive/api gtfs:import <dossier> --governorate … --prefix … --line-type …`
+  fait un **essai à blanc** par défaut (tableau de ce qui serait créé ou mis à
+  jour) ; `--apply` écrit le tout dans **une seule transaction**. Relancer
+  l'import met à jour (idempotent).
+- Lecture CSV maison (RFC 4180, BOM, fins de ligne Windows). Pour chaque sens,
+  le parcours le plus fréquent est retenu, avec la médiane des temps de trajet.
+  Noms arabes lus dans `translations.txt` ; tracé dans `shapes.txt`, sinon en
+  lignes droites. Contrôles : coordonnées en Tunisie, heures au-delà de
+  24 h acceptées.
+- Mode d'emploi et modèles de fichiers dans `docs/gtfs/`.
+
+**App mobile publiable**
+
+- Profil EAS `production` : Android App Bundle, numéro de version
+  auto-incrémenté, envoi vers la piste « test interne ».
+- Clé Google Maps et `google-services.json` lus depuis les variables d'EAS
+  (`app.config.ts`), jamais dans le dépôt.
+- Permissions inutiles retirées (`SYSTEM_ALERT_WINDOW`, stockage).
+- **Icônes** : bus jaune sur bleu nuit ; icône adaptative et monochrome
+  Android ; écran de démarrage clair et sombre.
+- Profil → « Confidentialité » : lien vers la politique, suppression du compte.
+
+**Déploiement** (`deploy/`, procédures dans `docs/DEPLOIEMENT.md`)
+
+- **Image de l'API** : Node 22.19, utilisateur non-root, OpenSSL (pour Prisma),
+  aucun secret (`.dockerignore`).
+- **Compose** : `db` (PostGIS, aucun port publié), `migrate` (applique les
+  migrations puis s'arrête ; l'API attend qu'il ait réussi), `api` (contrôle de
+  santé sur `/health/ready`), `caddy`, `backup`. Journaux Docker limités en taille.
+- **Caddy** : HTTPS automatique (Let's Encrypt) sur **un seul domaine** :
+  `/api`, `/socket.io`, `/t`, `/legal` vers l'API, et `/admin` pour l'admin
+  statique. Le même domaine est nécessaire au cookie `SameSite=Strict` de l'admin,
+  construite pour cela sous `/admin/` (`VITE_BASE_PATH`).
+- **Sauvegardes** : `pg_dump` quotidien, gardé 14 jours ; script de restauration
+  avec confirmation.
+
+**Intégration continue et qualité**
+
+- GitHub Actions (`.github/workflows/ci.yml`) : format, lint, types, tests,
+  couverture, builds, assemblage de l'app mobile, migrations sur une base vide
+  avec contrôle d'écart, seed lancé deux fois, tests e2e sur PostGIS. Aucun
+  secret ni déploiement automatique.
+- **Dependabot** : mises à jour hebdomadaires groupées, en excluant les
+  versions figées (Expo, Prisma, majeures de TypeScript, NestJS, `pg`…).
+- **Seuils de couverture** : shared (tests unitaires, mesuré 90 % des lignes) et
+  API (tests e2e, mesuré 90 % des lignes, 73 % des branches) ;
+  `pnpm test:coverage`.
+
+**Test de charge** (`pnpm --filter @buslive/api load:test`)
+
+- 20 passagers qui enchaînent les écrans, plus 200 clients temps réel, pendant 30 s :
+  **98 requêtes/s, p95 352 ms, 0 erreur** sur le PC de développement.
+- L'API est limitée par le **processeur** (94 % d'un cœur). Le profil a montré
+  que le tri des numéros de ligne recréait un comparateur `Intl` à chaque
+  comparaison : corrigé, le débit est passé de **58 à 98 requêtes/s**.
+- Détails, limites et suites possibles dans `docs/SECURITE.md`, avec l'audit,
+  le brouillon du formulaire Google Play, la déclaration de localisation en
+  arrière-plan et la déclaration INPDP.
+
+### Écarts et problèmes rencontrés
+
+- **Réseau très lent** (4 à 30 Kio/s depuis npm) : la première image Docker a
+  mis environ 30 minutes. J'ai ajouté un cache du magasin pnpm
+  (`--mount=type=cache`) : les paquets téléchargés sont gardés d'une
+  construction à l'autre.
+- **OpenSSL absent** de l'image `node:…-slim` : le moteur de migrations de Prisma
+  ne pouvait pas joindre la base. Ajouté dans une étape commune aux deux étages.
+- **Client Prisma en « .ts »** dans l'image : l'API plantait au démarrage
+  (`Cannot find module './internal/class.ts'`). Prisma choisit l'extension des
+  imports d'après le `tsconfig.json`, pas encore copié quand `pnpm install`
+  génère le client. Corrigé par `importFileExtension = "js"` dans
+  `schema.prisma` (aucun effet sur la base : écart toujours vide).
+- **Code en lecture seule** dans l'image : les fichiers appartiennent à root,
+  l'utilisateur `node` qui fait tourner l'API ne peut pas les modifier.
+- **Nom du projet Compose** : `docker-compose.prod.yml` s'appelait `buslive`, comme
+  celui de développement. Lancé sur le PC, il aurait repris le conteneur et le
+  volume de la base de développement. Renommé `buslive-prod`.
+- **Seed dans l'image** : `prisma db seed` ne trouve pas `tsx` (absent du `PATH`) ;
+  la documentation appelle directement `node_modules/.bin/tsx prisma/seed/index.ts`.
+- **Avertissement `pg`** en test (« client.query() » simultanés) : il vient de
+  Prisma 7.10, dans ses transactions, et non de notre code. Sans effet avec
+  `pg` 8 ; `pg` 9 est exclu de Dependabot.
+- **`pnpm audit`** : 4 alertes, toutes dans l'outillage de l'app mobile (CLI
+  d'Expo, Jest), dont 3 sans correctif ; rien dans l'API ni dans l'admin.
+- **`expo-doctor`** : 5 modules Expo avaient une nouvelle version corrective ;
+  alignés avec `npx expo install --fix`. Le contrôle du schéma de configuration
+  a échoué faute de réseau (connexion à l'API d'Expo).
+- Une ligne parasite (`git check-ignore …`) traînait dans `.gitignore` : retirée.
+- Un lancement de `pnpm test`, pendant la construction Docker, a vu l'admin
+  répondre « no tests » ; relancé, tout passait (8 tests). Une seule
+  occurrence, liée à la charge de la machine ; à surveiller dans la CI.
+- **Limites assumées** :
+  - les lectures publiques ne sont pas limitées en débit (voir `SECURITE.md`) ;
+  - l'adresse email n'est pas vérifiée à l'inscription ;
+  - pas de double authentification pour les administrateurs ;
+  - une seule instance de l'API (pas de haute disponibilité : quelques secondes
+    de coupure à chaque mise à jour) ;
+  - image de l'API de 1,2 Go : elle garde les dépendances de développement (CLI
+    Prisma pour les migrations, `tsx` pour le seed et l'import GTFS). On pourra
+    l'alléger plus tard avec une image de migration séparée.
+
+### Fichiers créés ou modifiés
+
+```
+packages/shared/src/privacy.ts (créé), index.ts, admin.ts (auteur nullable), jest.config.cjs, package.json
+apps/api/src/common/logging/ (créé) : json-logger.ts, request-logger.ts, logging.test.ts
+apps/api/src/account/ (créé) : account.module.ts, account.controller.ts, account.service.ts
+apps/api/src/privacy/ (créé) : privacy.module.ts, retention.service.ts, legal-pages.ts, legal.controller.ts
+apps/api/src/gtfs/ (créé) : csv.ts, gtfs-plan.ts, gtfs-apply.ts, gtfs.test.ts
+apps/api/prisma/scripts/gtfs-import.ts (créé), schema.prisma, migrations/20261019125303_account_deletion/
+apps/api/src/config/env.schema.ts (+ test), setup-app.ts, main.ts, app.module.ts, auth/auth.module.ts,
+     reports/reports.service.ts, notifications/alert-engine.service.ts, rides/rides.service.ts,
+     admin/admin-moderation.service.ts, network/network.mapper.ts (Intl.Collator)
+apps/api/test/security.e2e-test.ts, gtfs.e2e-test.ts, load/load-test.ts, fixtures/gtfs-mini/ (créés),
+     test-env.cjs, utils.ts, jest.e2e.config.cjs, package.json, .env.example, README.md
+apps/admin/vite.config.ts, src/main.tsx, src/pages/ReportsPage.tsx, .env.example, README.md
+apps/mobile/app.json, app.config.ts, eas.json, assets/*.png, app/(tabs)/profile.tsx,
+     src/components/PrivacyCard.tsx, src/api/publicUrl.ts (créés), src/api/me.ts, src/auth/AuthProvider.tsx,
+     src/trips/tripShare.ts, src/i18n/locales/fr.json, ar.json, package.json, README.md
+deploy/ (créé) : api.Dockerfile, caddy.Dockerfile, Caddyfile, docker-compose.prod.yml,
+     .env.production.example, backup.sh, restore.sh
+.github/workflows/ci.yml, .github/dependabot.yml, .dockerignore (créés), .gitignore, package.json, pnpm-lock.yaml
+docs/DEPLOIEMENT.md, docs/SECURITE.md, docs/gtfs/ (créés), docs/ARCHITECTURE.md
+CLAUDE.md, README.md, JOURNAL.md
+```
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm install
+pnpm --filter @buslive/api prisma:deploy        # migration account_deletion
+pnpm lint && pnpm format:check && pnpm typecheck
+pnpm test                                       # tests unitaires
+pnpm test:coverage                              # couverture avec seuils (base Docker démarrée)
+
+# Import GTFS : essai à blanc sur le jeu de test, puis écriture
+pnpm --filter @buslive/api gtfs:import test/fixtures/gtfs-mini --governorate TN-53 --prefix TEST --line-type URBAN
+pnpm --filter @buslive/api gtfs:import test/fixtures/gtfs-mini --governorate TN-53 --prefix TEST --line-type URBAN --apply
+
+# Test de charge (API démarrée dans un autre terminal : pnpm dev:api)
+pnpm --filter @buslive/api load:test --users 20 --duration 30 --watchers 200
+
+# Images de production, en local
+docker build -f deploy/api.Dockerfile -t buslive-api .
+```
+
+Résultats obtenus :
+
+- lint, format et typecheck sans erreur (4 projets) ;
+- tests unitaires : 122 dans shared, 72 dans l'API, 120 dans le mobile, 8 dans
+  l'admin ;
+- tests e2e : **164** (dont 7 de sécurité et 4 d'import GTFS) ; couverture
+  de l'API 90,5 % des lignes, au-dessus des seuils ;
+- builds de shared, de l'API et de l'admin (aussi sous `/admin/`) ; bundle
+  mobile assemblé (6,2 Mo) ;
+- écart schéma ↔ base : « empty migration » ;
+- aucune mention interdite dans le dépôt ;
+- **pile de production testée en local** (projet Compose séparé, configuration
+  de test supprimée ensuite) :
+  - migrations appliquées par le service `migrate` ;
+  - API saine (`/health/ready`) avec des journaux JSON et l'avertissement
+    attendu (push désactivé) ;
+  - API sous l'utilisateur `node`, code non modifiable ;
+  - seed de production (gouvernorats seulement), `set-role` et essai à blanc
+    GTFS lancés dans l'image ;
+  - sauvegarde créée par le service `backup` ; restauration vérifiée (valeur
+    modifiée, puis restaurée) ;
+  - `Caddyfile` validé par `caddy validate` ; image Caddy construite et testée :
+    `/admin` redirige vers `/admin/`, les routes de l'admin renvoient
+    `index.html`, en-têtes de sécurité présents.
+- **Pas testé** : HTTPS réel (il faut un domaine public), envoi FCM réel, build
+  EAS de production, et l'app sur un téléphone avec l'API de production.
+
+### À configurer soi-même
+
+1. Appliquer la migration (`prisma:deploy`).
+2. **Serveur** : louer un VPS (2 vCPU, 2 Go), un nom de domaine, puis suivre
+   `docs/DEPLOIEMENT.md` (pare-feu, Docker, `.env.production`, clé Firebase).
+3. **Google Cloud** : clé « Maps SDK for Android » restreinte au paquet et à
+   l'empreinte SHA-1, déclarée dans EAS (`GOOGLE_MAPS_API_KEY`).
+4. **EAS** : variables `GOOGLE_SERVICES_JSON` (fichier) et `EXPO_PUBLIC_API_URL`
+   (`https://<domaine>/api/v1`) dans l'environnement `production`.
+5. **Play Console** : compte développeur, fiche de l'app, formulaire « Sécurité
+   des données » et déclaration de localisation en arrière-plan (brouillons et
+   vidéo à faire dans `docs/SECURITE.md`), URL de la politique et de la
+   suppression du compte.
+6. **Juridique** : faire relire la politique de confidentialité, et faire la
+   déclaration à l'**INPDP** avant le lancement.
+7. **GitHub** : pousser le dépôt pour activer la CI et Dependabot ; protéger la
+   branche `main` (CI obligatoire avant fusion).
+8. **Données réelles** : préparer un GTFS des lignes de Mahdia et Ksour Essef
+   (modèles dans `docs/gtfs/modele/`) ; ne pas lancer le seed de démonstration
+   en production.
+9. Faire relire les nouveaux textes arabes (confidentialité, suppression du
+   compte, pages légales).
+10. Copier les sauvegardes hors du serveur, et tester une restauration.
+
+### Message de commit proposé
+
+```
+feat: sécurité, vie privée, import GTFS et déploiement
+
+- audit : toutes les routes testées sans jeton, corps limité, délais, TRUST_PROXY, journaux JSON sans données personnelles
+- suppression de compte (signalements anonymisés), durées de conservation et purge quotidienne
+- pages /legal/privacy et /legal/account-deletion (fr/ar)
+- import GTFS idempotent avec essai à blanc
+- mobile publiable : profil EAS production (AAB), clé Maps par variable, permissions, icônes
+- deploy/ : image API non-root, Compose (migrations, Caddy HTTPS, sauvegardes), docs/DEPLOIEMENT.md
+- CI GitHub Actions, Dependabot, seuils de couverture, test de charge (tri des lignes 70 % plus rapide)
+```

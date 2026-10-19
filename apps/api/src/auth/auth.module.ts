@@ -47,6 +47,7 @@ import { RefreshTokenService } from './refresh-token.service';
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
   // La suspension d'un compte (modération) révoque toutes ses sessions.
-  exports: [RefreshTokenService],
+  // + PasswordService : la suppression de compte redemande le mot de passe.
+  exports: [RefreshTokenService, PasswordService],
 })
 export class AuthModule {}

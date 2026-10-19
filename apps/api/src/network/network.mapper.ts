@@ -115,7 +115,11 @@ export function toGeoPoints(coordinates: [number, number][] | null): GeoPoint[] 
   return coordinates ? coordinates.map(([longitude, latitude]) => ({ latitude, longitude })) : null;
 }
 
+// Créé une seule fois : « localeCompare » avec des options recrée un comparateur
+// à chaque appel (coûteux dans un tri, repéré au test de charge).
+const lineCodeCollator = new Intl.Collator('fr', { numeric: true });
+
 /** Tri « naturel » des numéros de ligne : 1, 2, 10, 11 (et non 1, 10, 11, 2). */
 export function compareLineCodes(a: string, b: string): number {
-  return a.localeCompare(b, 'fr', { numeric: true });
+  return lineCodeCollator.compare(a, b);
 }

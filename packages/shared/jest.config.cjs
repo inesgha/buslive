@@ -10,4 +10,10 @@ module.exports = {
     // ts-jest compile le TypeScript des tests à la volée.
     '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
   },
+  // Couverture (« pnpm test:coverage ») : le test échoue sous ces seuils.
+  // Mesuré en phase 11 : 90 % des lignes, 85 % des branches.
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.test.ts'],
+  coverageThreshold: {
+    global: { statements: 85, branches: 80, functions: 90, lines: 85 },
+  },
 };

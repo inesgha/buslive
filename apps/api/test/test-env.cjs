@@ -30,6 +30,8 @@ function applyTestEnv() {
   process.env.PUSH_PROVIDER = 'memory';
   // Origine du tableau de bord web (cookies de session, vérification de l'origine).
   process.env.CORS_ORIGINS = 'http://localhost:5173';
+  // Pas de ligne de journal par requête (le test dédié l'active lui-même).
+  process.env.LOG_REQUESTS = process.env.LOG_REQUESTS_IN_TESTS ?? 'false';
   return url;
 }
 

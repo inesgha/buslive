@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import * as authApi from '@/api/auth';
+import { deleteAccount as deleteAccountRequest } from '@/api/me';
 import { clearPersonalQueries } from '@/api/queryClient';
 import { unregisterThisDevice } from '@/notifications/push';
 
@@ -24,6 +25,8 @@ interface AuthContextValue {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  /** Supprime le compte sur le serveur, puis oublie la session. */
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -62,6 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Révocation côté serveur « au mieux » : hors ligne, on est quand même
         // déconnecté sur le téléphone, et le jeton expirera de lui-même.
         if (refreshToken) void authApi.logout(refreshToken).catch(() => undefined);
+      },
+      deleteAccount: async (password) => {
+        // Le serveur supprime tout (sessions et téléphones compris) : il reste
+        // seulement à oublier la session sur ce téléphone.
+        await deleteAccountRequest(password);
+        await session.clear();
       },
     }),
     [state],

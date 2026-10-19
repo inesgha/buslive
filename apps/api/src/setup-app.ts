@@ -1,10 +1,19 @@
 import { type INestApplication, RequestMethod, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 
 import { ConfiguredIoAdapter } from './common/io-adapter';
+import { requestLogger } from './common/logging/request-logger';
 import type { Env } from './config/env.schema';
+
+/**
+ * Taille maximale d'un corps de requête JSON. Les plus gros envois (lot de 20
+ * positions, station de louage) font quelques kilo-octets : au-delà, c'est un
+ * abus (413).
+ */
+export const BODY_LIMIT = '100kb';
 
 /** Préfixe commun à toutes les routes : /api/v1/... */
 export const API_PREFIX = 'api';
@@ -16,8 +25,14 @@ export const API_PREFIX = 'api';
 export function setupApp(app: INestApplication): void {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
-  // En-têtes HTTP de sécurité (anti-clickjacking, anti-sniffing MIME…).
+  const express = app as NestExpressApplication;
+  // Derrière un proxy (Caddy) : l'adresse IP du client est lue dans X-Forwarded-For.
+  express.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
+  express.useBodyParser('json', { limit: BODY_LIMIT });
+
+  // En-têtes HTTP de sécurité (anti-clickjacking, anti-sniffing MIME, HSTS…).
   app.use(helmet());
+  if (config.get('LOG_REQUESTS', { infer: true })) app.use(requestLogger());
 
   // Seules les origines listées dans CORS_ORIGINS peuvent appeler l'API depuis
   // un navigateur. L'app mobile native n'est pas concernée par CORS.
@@ -30,11 +45,14 @@ export function setupApp(app: INestApplication): void {
 
   // Routes versionnées : /api/v1/health. Une future v2 pourra cohabiter avec
   // la v1 pour ne pas casser les anciennes versions de l'app mobile.
-  // Exception : la page de suivi « Partager mon trajet » (/t/<jeton>), pour un lien court.
+  // Exceptions : la page de suivi « Partager mon trajet » (/t/<jeton>, lien court)
+  // et les pages légales (/legal/…, adresses données à Google Play).
   app.setGlobalPrefix(API_PREFIX, {
     exclude: [
       { path: 't/assets/trip.js', method: RequestMethod.GET },
       { path: 't/:token', method: RequestMethod.GET },
+      { path: 'legal/privacy', method: RequestMethod.GET },
+      { path: 'legal/account-deletion', method: RequestMethod.GET },
     ],
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

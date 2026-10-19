@@ -109,7 +109,8 @@ const PersonSchema = z.object({
 /** Signalement vu par un modérateur : avec son auteur et les poids des votes. */
 export const AdminReportSchema = ReportSchema.extend({
   hidden: z.boolean(),
-  author: PersonSchema,
+  /** null : l'auteur a supprimé son compte. */
+  author: PersonSchema.nullable(),
   confirmWeight: z.number(),
   denyWeight: z.number(),
   proposedLatitude: z.number().nullable(),
