@@ -1,5 +1,5 @@
 import type { Locale, UpdateProfileInput, UserProfile } from '@buslive/shared';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { Prisma, type User } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,7 +28,7 @@ export class UsersService {
     return this.prisma.user.create({ data });
   }
 
-  /** Modifie les préférences du compte (langue, notifications). */
+  /** Modifie les préférences du compte (langue, notifications, téléphone). */
   async update(id: string, input: UpdateProfileInput): Promise<UserProfile> {
     try {
       return this.toProfile(await this.prisma.user.update({ where: { id }, data: input }));
@@ -36,6 +36,10 @@ export class UsersService {
       // P2025 : le compte a été supprimé entre-temps (jeton encore valide).
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new NotFoundException('Compte introuvable.');
+      }
+      // P2002 : le numéro est déjà lié à un autre compte.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Ce numéro de téléphone est déjà utilisé par un autre compte.');
       }
       throw error;
     }

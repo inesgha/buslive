@@ -1367,3 +1367,204 @@ feat(alerts): favoris, alertes « mon trajet » et notifications push FCM
 - envoi FCM (firebase-admin) derrière PushSender ; mode console sans Firebase
 - mobile : onglet Alertes, formulaire d'alerte, étoiles, notifications dans le Profil
 ```
+
+## Phase 9 — Alternatives (louage, covoiturage) et « Partager mon trajet » (19/10/2026)
+
+Choix validés avant de commencer :
+
+- covoiturage par **demande puis acceptation**, les numéros n'étant échangés
+  qu'après l'acceptation ;
+- page de suivi **web, sans carte**, sans aucun service extérieur.
+
+### Ce qui a été fait et pourquoi
+
+**Règles et formats (`@buslive/shared`, testés)**
+
+- `money.ts` : montants en **millimes** (entiers, pour éviter les erreurs
+  d'arrondi), et `formatMillimes` → « 3,500 DT » ou « 3,500 د.ت ».
+- `louage.ts` : stations, destinations, prix, horaires, `isStationOpen`.
+- `rides.ts` :
+  - `RIDE_RULES` : 6 places au plus, 100 DT au plus, départ entre 10 min et
+    7 jours, 3 trajets en cours par conducteur, 10 demandes par jour, score de
+    confiance minimal −50 ;
+  - schémas, `seatsLeft` et `isRideOpen`.
+- `trips.ts` : formats des liens de suivi, et `tripShareExpiry` (3 h au plus, ou
+  15 min après la fin du partage).
+- `notifications.ts` : 4 notifications de covoiturage (demande, acceptée,
+  refusée, trajet annulé) dans un nouveau canal Android « rides ». En arabe, le
+  trajet s'écrit « من … إلى … » : une flèche se lirait à l'envers.
+- `PATCH /me` accepte maintenant le **téléphone** (format tunisien vérifié).
+
+**API**
+
+- **Base** (migration `alternatives_trip_shares`) :
+  - `louage_stations`, avec une position PostGIS calculée par un trigger,
+    comme pour les arrêts ;
+  - `louage_routes`, `ride_offers`, `ride_requests` (une seule demande par
+    passager et par trajet) et `ride_flags` ;
+  - `trip_shares`, qui ne stocke que l'**empreinte** du jeton ;
+  - des contraintes CHECK écrites à la main.
+- **Seed** : 7 localités de destination, plus 2 stations de louage de
+  démonstration (Mahdia et Ksour Essef). Les prix et horaires sont **inventés**,
+  et signalés comme tels.
+- **Louages** :
+  - `GET /localities` ;
+  - `GET /louage/stations/nearby`, par PostGIS, avec un filtre sur la
+    destination (la destination demandée est listée en premier).
+- **Covoiturage** (`/rides`, réservé aux comptes connectés) :
+  - publier, chercher, voir le détail, annuler ;
+  - demander des places, accepter, refuser, annuler sa demande ;
+  - signaler une annonce.
+
+  Points clés :
+  - **les numéros ne sont visibles qu'après acceptation, et seulement entre le
+    conducteur et ce passager**. Cette règle est appliquée en un seul endroit,
+    `rides.mapper.ts` ;
+  - l'acceptation se fait dans une transaction qui **verrouille** l'annonce
+    (`FOR UPDATE`) : deux acceptations simultanées ne dépassent jamais le
+    nombre de places (testé) ;
+  - un refus est définitif pour ce trajet, et une demande annulée peut être
+    refaite ;
+  - les notifications passent par le système de la phase 8.
+
+- **Partager mon trajet** :
+  - `POST /trips` crée un lien pour **mon** partage en cours. Le jeton fait 24
+    octets aléatoires, il n'est donné qu'une fois, et la base n'en garde que
+    l'empreinte SHA-256 ;
+  - `GET /trips/:token` est public, limité par adresse IP, et ne contient
+    **aucune donnée personnelle** (ni nom, ni téléphone, ni positions) ;
+  - le statut vaut « en direct », « position ancienne », « arrivé » ou
+    « terminé ». L'arrivée est détectée par l'événement interne `stopPassed`,
+    qui porte maintenant l'identifiant du partage ; il n'est jamais stocké avec
+    les passages observés ;
+  - la page **`/t/<jeton>`** est servie hors du préfixe `/api/v1`, pour un lien
+    court. Elle est légère, en français ou en arabe selon le navigateur, avec un
+    mode sombre et une mise à jour toutes les 10 s. Son script est un fichier
+    séparé (la CSP de helmet interdit les scripts intégrés), et les données y
+    sont insérées en `textContent` (pas d'injection possible).
+
+**Mobile**
+
+- **Écran Alternatives** :
+  - destination à choisir, ou proposée depuis le détail d'une ligne (localité
+    du terminus) ;
+  - louages proches (ouvert ou fermé, distance, prix, durée) ;
+  - covoiturages au départ de la localité la plus proche (**déduite** de la
+    station de louage la plus proche, et modifiable) ;
+  - « Mes covoiturages » et un rappel de prudence.
+
+  Il s'ouvre depuis l'onglet Alertes, où la place était réservée depuis la
+  phase 8, et depuis le détail d'une ligne.
+
+- **Détail d'un trajet** :
+  - côté passager : demander des places, voir l'état de la demande, puis
+    « Appeler le … » une fois la demande acceptée ;
+  - côté conducteur : accepter ou refuser les demandes, et annuler le trajet ;
+  - « Signaler » avec 3 motifs, sans texte libre.
+- **Proposer un trajet** : départ et arrivée, jour (7 jours), heure par quart
+  d'heure, places, participation par 500 millimes. La logique est en
+  fonctions pures (`rideForm.ts`), et les heures sont saisies en heure de
+  Tunis.
+- **Partager mon trajet** : une carte dans l'écran de partage. L'arrêt de
+  descente est le terminus par défaut. La carte crée le lien, ouvre la feuille
+  de partage du téléphone avec un message prêt à envoyer, liste les liens
+  actifs et permet de les désactiver.
+- **Profil → Téléphone** : même validation que l'API, et un message clair si le
+  numéro est déjà pris.
+- Les louages et les localités sont gardés hors ligne. Les données de
+  covoiturage et les liens sont effacés à la déconnexion.
+
+### Écarts et problèmes rencontrés
+
+- **Le passage d'un arrêt ne disait pas quel partage était concerné.**
+  `stopPassed` porte maintenant `sessionId`, pour détecter l'arrivée à l'arrêt
+  de descente. J'ai vérifié que les passages observés ne copient que des
+  champs choisis : ils restent anonymes.
+- **La CSP de helmet bloque les scripts intégrés à une page** : le script de
+  la page de suivi est servi à part, au lieu d'assouplir la sécurité.
+- **Les arrêts ne connaissent que le code de leur localité**, pas son
+  identifiant : l'écran Alternatives reçoit donc un code (`toCode`).
+- **Erreurs de l'API en français** : en arabe, l'app affiche un message traduit
+  (`rideErrorMessage`), avec un cas particulier pour le téléphone manquant.
+- Une valeur attendue dans un test était fausse (23:30 + 1 h donne 00:30) ; le
+  code était juste.
+
+### Fichiers créés ou modifiés
+
+```
+packages/shared/src/money.ts, louage.ts, rides.ts, trips.ts, alternatives.test.ts (créés)
+packages/shared/src/notifications.ts (covoiturage), user.ts (téléphone), index.ts
+apps/api/prisma/schema.prisma, migrations/20261018200203_alternatives_trip_shares/
+apps/api/prisma/seed/data/louage-demo.ts (créé), seed.ts, types.ts
+apps/api/src/louage/ (créé) : louage.module.ts, louage.controller.ts, louage.service.ts
+apps/api/src/rides/ (créé) : rides.module.ts, rides.controller.ts, rides.service.ts, rides.mapper.ts
+apps/api/src/trips/ (créé) : trips.module.ts, trips.controller.ts, trips.service.ts,
+     trip-page.controller.ts, trip-page.ts
+apps/api/src/network/ (GET /localities, toLocalityOption), live/live.events.ts, live.service.ts,
+     live.module.ts, notifications/notifications.module.ts, users/users.service.ts,
+     users/enums-sync.test.ts, setup-app.ts (exclusion de /t), app.module.ts
+apps/api/test/alternatives.e2e-test.ts (créé), utils.ts
+apps/mobile/app/alternatives.tsx, rides/[id].tsx, rides/new.tsx (créés), _layout.tsx, share.tsx,
+     (tabs)/alerts.tsx, (tabs)/profile.tsx, lines/[id].tsx
+apps/mobile/src/api/alternatives.ts (créé), network.ts, queryClient.ts (+ test)
+apps/mobile/src/rides/rideForm.ts (+ test), rideErrors.ts, src/trips/tripShare.ts (+ test) (créés)
+apps/mobile/src/components/LouageStationCard.tsx, RideRow.tsx, LocalityChips.tsx, ValueStepper.tsx,
+     TripShareCard.tsx, PhoneCard.tsx, AlternativesComponents.test.tsx (créés)
+apps/mobile/src/notifications/PushProvider.tsx (canal), src/time/format.ts (+ test),
+     src/i18n/locales/fr.json, ar.json
+CLAUDE.md, docs/ARCHITECTURE.md, apps/api/README.md, apps/mobile/README.md, JOURNAL.md
+```
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm --filter @buslive/api prisma:deploy    # nouvelles tables
+pnpm --filter @buslive/api db:seed          # louages de démonstration
+pnpm dev:api && pnpm dev:mobile
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e
+```
+
+Pour voir la page de suivi : lancer un partage « Je suis dans le bus », toucher
+« Envoyer le lien », puis ouvrir ce lien dans un navigateur connecté au même
+Wi-Fi.
+
+Résultats obtenus :
+
+- lint, format et typecheck sans erreur ;
+- tests unitaires : 115 dans shared, 56 dans l'API et 116 dans le mobile ;
+- tests e2e : **131**, dont 22 nouveaux. Ils vérifient notamment :
+  - qu'**aucun numéro n'apparaît** dans la recherche ni chez un tiers, et
+    qu'ils apparaissent après acceptation, de chaque côté ;
+  - que deux acceptations simultanées ne dépassent pas les places ;
+  - les annulations et leurs notifications, et la page web avec sa CSP ;
+  - un lien de suivi **sans donnée personnelle**, l'arrivée détectée par un
+    vrai partage, puis l'expiration et la désactivation ;
+- `expo-doctor` : 20 sur 20 ; le bundle Android se construit (5,5 Mo) ;
+- écart schéma ↔ base : « empty migration ».
+
+**Pas encore testé sur un vrai téléphone.**
+
+### À configurer soi-même
+
+1. Appliquer la migration (`prisma:deploy`), puis relancer le seed (`db:seed`)
+   pour les louages de démonstration.
+2. **Remplacer les données de louage par des vraies** : emplacements, tarifs
+   officiels, horaires (`louage-demo.ts`). La modération de la phase 10
+   permettra de les gérer.
+3. **Faire relire les nouveaux textes arabes** : alternatives, covoiturage,
+   partage de trajet, téléphone, notifications.
+4. **Plus tard (phase 11)** : l'adresse publique de l'API, pour que les liens de
+   suivi s'ouvrent en dehors du Wi-Fi ; la vérification du téléphone par SMS ;
+   une recherche de localités quand toute la Tunisie sera couverte.
+
+### Message de commit proposé
+
+```
+feat(alternatives): louages, covoiturage et « Partager mon trajet »
+
+- louages : stations proches (PostGIS), destinations, prix en millimes, données de démonstration
+- covoiturage : demande puis acceptation, numéros échangés seulement après acceptation, places verrouillées
+- notifications de covoiturage (canal « rides »), signalement des annonces, téléphone dans le profil
+- lien de suivi secret (empreinte en base) et page web /t/<jeton> sans donnée personnelle
+- mobile : écran Alternatives, trajets de covoiturage, partage du trajet en cours
+```

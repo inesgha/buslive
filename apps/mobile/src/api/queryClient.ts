@@ -37,10 +37,21 @@ const PERSISTED_KEYS = new Set([
   'stopDepartures',
   'favorites',
   'alerts',
+  'localities',
+  'louageNearby',
 ]);
 
 /** Données propres au compte connecté : jamais gardées après une déconnexion. */
-const PERSONAL_KEYS = ['favorites', 'alerts', 'notifications', 'myTrust'] as const;
+const PERSONAL_KEYS = [
+  'favorites',
+  'alerts',
+  'notifications',
+  'myTrust',
+  'rides',
+  'ride',
+  'myRides',
+  'tripShares',
+] as const;
 
 /**
  * Ne sauvegarde que les requêtes réussies des types ci-dessus. Les seules

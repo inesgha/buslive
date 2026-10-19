@@ -3,8 +3,13 @@ import { EventEmitter } from 'node:events';
 import type { VehicleGroup } from '@buslive/shared';
 import { Injectable } from '@nestjs/common';
 
-/** Un bus en direct vient de dépasser un arrêt (passage observé, anonyme). */
+/**
+ * Un bus en direct vient de dépasser un arrêt. « sessionId » sert seulement aux
+ * liens « Partager mon trajet » (arrivée à l'arrêt de descente) : les passages
+ * observés, eux, restent anonymes (l'identifiant n'est jamais enregistré avec).
+ */
 export interface StopPassedEvent {
+  sessionId: string;
   lineId: string;
   directionId: string;
   stopId: string;

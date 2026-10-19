@@ -306,6 +306,7 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
         next.progressMinutes >= stop.minutesFromStart
       ) {
         this.events.emit('stopPassed', {
+          sessionId: sharer.sessionId,
           lineId: sharer.lineId,
           directionId: sharer.directionId,
           stopId: stop.stopId,

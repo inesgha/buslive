@@ -19,7 +19,8 @@ import { RouteCacheService } from './route-cache.service';
     RouteCacheService,
     LiveEvents,
   ],
-  // LiveBroadcaster et LiveEvents servent au module des signalements (diffusion, preuves).
-  exports: [LiveService, LiveBroadcaster, LiveEvents],
+  // LiveBroadcaster et LiveEvents servent aux signalements et aux alertes ;
+  // LiveRegistry et RouteCacheService aux liens « Partager mon trajet ».
+  exports: [LiveService, LiveBroadcaster, LiveEvents, LiveRegistry, RouteCacheService],
 })
 export class LiveModule {}

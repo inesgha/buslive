@@ -11,6 +11,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { NotificationsCard } from '@/components/NotificationsCard';
+import { PhoneCard } from '@/components/PhoneCard';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TrustCard } from '@/components/TrustCard';
@@ -76,6 +77,7 @@ export default function ProfileScreen() {
 
       {state.status === 'signedIn' ? <TrustCard /> : null}
       {state.status === 'signedIn' ? <NotificationsCard user={state.user} /> : null}
+      {state.status === 'signedIn' ? <PhoneCard user={state.user} /> : null}
 
       <Card style={styles.section}>
         <AppText variant="heading">{t('profile.language')}</AppText>

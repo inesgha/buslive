@@ -6,6 +6,9 @@ import {
   NOTIFICATION_TYPES,
   PUSH_PLATFORMS,
   REPORT_STATUSES,
+  RIDE_FLAG_REASONS,
+  RIDE_OFFER_STATUSES,
+  RIDE_REQUEST_STATUSES,
   REPORT_TYPES,
   ROLES,
   TRUST_EVENT_REASONS,
@@ -20,6 +23,9 @@ import {
   NotificationType,
   PushPlatform,
   ReportStatus,
+  RideFlagReason,
+  RideOfferStatus,
+  RideRequestStatus,
   ReportType,
   Role,
   TrustEventReason,
@@ -44,6 +50,9 @@ describe('Synchronisation des enums Prisma ↔ @buslive/shared', () => {
     ['TrustEventReason', TrustEventReason, TRUST_EVENT_REASONS],
     ['PushPlatform', PushPlatform, PUSH_PLATFORMS],
     ['NotificationType', NotificationType, NOTIFICATION_TYPES],
+    ['RideOfferStatus', RideOfferStatus, RIDE_OFFER_STATUSES],
+    ['RideRequestStatus', RideRequestStatus, RIDE_REQUEST_STATUSES],
+    ['RideFlagReason', RideFlagReason, RIDE_FLAG_REASONS],
   ] as const)('%s', (_name, prismaEnum, sharedValues) => {
     expect(Object.values(prismaEnum)).toEqual([...sharedValues]);
   });

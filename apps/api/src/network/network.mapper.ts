@@ -6,6 +6,7 @@ import type {
   Governorate as GovernorateDto,
   LineSummary,
   Locality as LocalityDto,
+  LocalityOption,
   ServiceCalendar as ServiceCalendarDto,
   StopSummary,
 } from '@buslive/shared';
@@ -33,6 +34,19 @@ function toLocality(locality: Locality | null): LocalityDto | null {
   return locality
     ? { code: locality.code, nameFr: locality.nameFr, nameAr: locality.nameAr }
     : null;
+}
+
+/** Localité avec son identifiant et son gouvernorat (choix de départ / destination). */
+export function toLocalityOption(
+  locality: Locality & { governorate: Governorate },
+): LocalityOption {
+  return {
+    id: locality.id,
+    code: locality.code,
+    nameFr: locality.nameFr,
+    nameAr: locality.nameAr,
+    governorateCode: locality.governorate.code,
+  };
 }
 
 export function toStopSummary(stop: Stop & { locality: Locality | null }): StopSummary {

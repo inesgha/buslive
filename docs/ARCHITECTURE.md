@@ -153,6 +153,51 @@ cible, et précise ce qui existe déjà.
 - **Nettoyage** : historique gardé 30 jours ; un téléphone muet depuis 60 jours
   est oublié ; 5 téléphones au plus par compte.
 
+## Alternatives et « Partager mon trajet » (phase 9, en place)
+
+**Louages** : données de référence (stations, destinations, prix en millimes,
+horaires), en lecture publique et gardées hors ligne. Les stations proches sont
+trouvées par PostGIS, comme les arrêts. Elles seront modérées en phase 10.
+
+**Covoiturage** :
+
+```
+ conducteur : publie (sans texte libre) ──▶ passager : demande N places
+                                            │
+ conducteur : accepte / refuse ◀────────────┘   (notification « rides »)
+     │ accepte (transaction + FOR UPDATE : jamais plus de places que prévu)
+     ▼
+ les DEUX numéros sont échangés, et seulement entre eux deux
+```
+
+- Un téléphone tunisien est exigé, et un score de confiance au moins égal à −50.
+- Garde-fous : 3 trajets en cours par conducteur, 10 demandes par jour et par
+  passager, départ entre 10 min et 7 jours, un refus définitif pour ce trajet,
+  signalement des annonces (traité en phase 10).
+- Aucun paiement : la participation se règle de la main à la main. Le futur
+  module de paiement reste séparé.
+
+**Partager mon trajet** :
+
+```
+ passager (partage en cours) ── POST /trips ──▶ jeton secret (empreinte SHA-256 en base)
+         │ feuille de partage (WhatsApp, SMS…)
+         ▼
+ proche : /t/<jeton> (page web, sans app) ── toutes les 10 s ──▶ GET /api/v1/trips/<jeton>
+                                                               avancée du bus, arrivée estimée
+```
+
+- La page n'affiche **ni nom, ni téléphone, ni positions** : seulement la ligne,
+  les arrêts et l'avancée du bus, qui est de toute façon publique et anonyme.
+- L'arrivée est détectée grâce à l'événement interne `stopPassed`, qui porte
+  maintenant l'identifiant du partage. Cet identifiant n'est jamais stocké avec
+  les passages observés.
+- Le lien expire 3 h après sa création, ou 15 min après la fin du partage, et
+  peut être désactivé. Un lien inconnu, désactivé ou expiré donne toujours la
+  même erreur 404.
+- La page ne charge aucune ressource extérieure (ni carte ni police) : l'adresse
+  IP du destinataire n'est envoyée à personne d'autre que BusLive.
+
 ## Modèle du réseau (phase 3, en place)
 
 Le modèle est inspiré de GTFS, le format standard des réseaux de transport, en

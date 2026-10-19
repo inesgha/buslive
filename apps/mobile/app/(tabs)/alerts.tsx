@@ -164,10 +164,14 @@ function SignedInAlerts() {
           )}
         </Card>
 
-        {/* Place réservée à la phase 9. */}
         <Card style={styles.section}>
           <AppText variant="heading">{t('alerts.alternativesTitle')}</AppText>
-          <AppText color="textMuted">{t('alerts.alternativesSoon')}</AppText>
+          <AppText color="textMuted">{t('alternatives.intro')}</AppText>
+          <Button
+            label={t('alternatives.find')}
+            variant="secondary"
+            onPress={() => router.push('/alternatives')}
+          />
         </Card>
       </ScrollView>
     </Screen>

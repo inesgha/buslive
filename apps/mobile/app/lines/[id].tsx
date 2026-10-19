@@ -201,6 +201,18 @@ function LineContent({ line }: { line: LineDetail }) {
 
       <LineReportsSection lineId={line.id} />
 
+      {/* Destination proposée : la localité du terminus du sens affiché. */}
+      <Button
+        label={t('lineDetail.alternatives')}
+        variant="secondary"
+        onPress={() =>
+          router.push({
+            pathname: '/alternatives',
+            params: { toCode: direction.stops.at(-1)?.stop.locality?.code ?? '' },
+          })
+        }
+      />
+
       <Card style={styles.section}>
         <AppText variant="heading">{t('lineDetail.stops')}</AppText>
         {direction.stops.map((lineStop, index) => {

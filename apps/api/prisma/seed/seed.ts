@@ -1,5 +1,6 @@
 import type { PrismaClient } from '../../src/generated/prisma/client';
 import { GOVERNORATES } from './data/governorates';
+import { DEMO_LOUAGE_LOCALITIES, DEMO_LOUAGE_STATIONS } from './data/louage-demo';
 import {
   DEMO_CALENDARS,
   DEMO_LINES,
@@ -21,6 +22,8 @@ export interface SeedSummary {
   calendars: number;
   lines: number;
   departures: number;
+  louageStations: number;
+  louageRoutes: number;
 }
 
 /**
@@ -46,6 +49,8 @@ export async function seed(prisma: PrismaClient, options: SeedOptions): Promise<
     calendars: 0,
     lines: 0,
     departures: 0,
+    louageStations: 0,
+    louageRoutes: 0,
   };
   if (!options.demo) return summary;
 
@@ -57,7 +62,7 @@ export async function seed(prisma: PrismaClient, options: SeedOptions): Promise<
     update: { name: DEMO_OPERATOR.name },
   });
 
-  for (const locality of DEMO_LOCALITIES) {
+  for (const locality of [...DEMO_LOCALITIES, ...DEMO_LOUAGE_LOCALITIES]) {
     const data = {
       nameFr: locality.nameFr,
       nameAr: locality.nameAr,
@@ -176,9 +181,52 @@ export async function seed(prisma: PrismaClient, options: SeedOptions): Promise<
     }
   }
 
+  // Louages (phase 9) : stations et destinations, retrouvées par leur code.
+  for (const station of DEMO_LOUAGE_STATIONS) {
+    const locality = localityById.get(station.localityCode);
+    if (!locality) throw new Error(`Localité inconnue : ${station.localityCode}`);
+    const data = {
+      nameFr: station.nameFr,
+      nameAr: station.nameAr,
+      latitude: station.latitude,
+      longitude: station.longitude,
+      openingMinutes: station.openingMinutes,
+      closingMinutes: station.closingMinutes,
+      governorateId: locality.governorateId,
+      localityId: locality.id,
+      status: 'ACTIVE' as const,
+    };
+    const saved = await prisma.louageStation.upsert({
+      where: { code: station.code },
+      create: { code: station.code, ...data },
+      update: data,
+    });
+    for (const [destinationCode, priceMillimes, durationMinutes] of station.routes) {
+      const destination = localityById.get(destinationCode);
+      if (!destination) throw new Error(`Localité inconnue : ${destinationCode}`);
+      await prisma.louageRoute.upsert({
+        where: {
+          stationId_destinationLocalityId: {
+            stationId: saved.id,
+            destinationLocalityId: destination.id,
+          },
+        },
+        create: {
+          stationId: saved.id,
+          destinationLocalityId: destination.id,
+          priceMillimes,
+          durationMinutes,
+        },
+        update: { priceMillimes, durationMinutes },
+      });
+    }
+  }
+
   return {
     ...summary,
-    localities: DEMO_LOCALITIES.length,
+    localities: DEMO_LOCALITIES.length + DEMO_LOUAGE_LOCALITIES.length,
+    louageStations: DEMO_LOUAGE_STATIONS.length,
+    louageRoutes: DEMO_LOUAGE_STATIONS.reduce((sum, station) => sum + station.routes.length, 0),
     stops: DEMO_STOPS.length,
     calendars: DEMO_CALENDARS.length,
     lines: DEMO_LINES.length,

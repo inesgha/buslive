@@ -137,6 +137,37 @@ Un horaire = un départ du terminus (minutes depuis minuit) + un calendrier
 - Les textes des notifications (fr / ar) viennent de `renderNotification`
   (`@buslive/shared`), dans la langue du compte.
 
+## Alternatives et « Partager mon trajet » (phase 9)
+
+| Route                                          | Accès          | Rôle                                                        |
+| ---------------------------------------------- | -------------- | ----------------------------------------------------------- |
+| `GET /api/v1/localities`                       | public         | Localités (départs et destinations)                         |
+| `GET /api/v1/louage/stations/nearby`           | public         | Stations de louage proches (`lat`, `lng`, `radius`, `to`)   |
+| `GET /api/v1/rides`                            | connecté       | Trajets de covoiturage des 7 prochains jours (`from`, `to`) |
+| `POST /api/v1/rides`                           | connecté       | Proposer un trajet (téléphone requis, 3 en cours au plus)   |
+| `GET /api/v1/rides/:id`                        | connecté       | Détail (demandes visibles du seul conducteur)               |
+| `POST /api/v1/rides/:id/cancel`                | conducteur     | Annuler (les passagers sont prévenus)                       |
+| `POST /api/v1/rides/:id/requests`              | connecté       | Demander des places (10 demandes par jour au plus)          |
+| `DELETE /api/v1/rides/:id/requests/mine`       | passager       | Annuler ma demande                                          |
+| `POST /api/v1/rides/:id/requests/:rid/accept`  | conducteur     | Accepter (verrou `FOR UPDATE` : jamais trop de places)      |
+| `POST /api/v1/rides/:id/requests/:rid/decline` | conducteur     | Refuser                                                     |
+| `POST /api/v1/rides/:id/flags`                 | connecté       | Signaler un trajet (modération en phase 10)                 |
+| `GET /api/v1/me/rides`                         | connecté       | Mes trajets proposés et mes demandes                        |
+| `POST /api/v1/trips`                           | connecté       | Lien de suivi pour mon partage en cours                     |
+| `GET /api/v1/me/trips` / `DELETE /trips/:id`   | connecté       | Mes liens actifs / désactiver un lien                       |
+| `GET /api/v1/trips/:token`                     | public, limité | État public du trajet (aucune donnée personnelle)           |
+| `GET /t/:token`                                | public         | Page web de suivi (hors du préfixe `/api/v1`)               |
+
+- **Confidentialité du covoiturage** : les numéros ne sont échangés qu'après
+  acceptation, et seulement entre le conducteur et ce passager. La règle est
+  appliquée à UN seul endroit, `src/rides/rides.mapper.ts`, et vérifiée par
+  les tests e2e.
+- **Liens de suivi** : jeton aléatoire de 24 octets, dont seule l'empreinte
+  SHA-256 est stockée. Le lien expire 3 h après sa création, ou 15 min après la
+  fin du partage. La page (`src/trips/trip-page.ts`) n'utilise aucun service
+  extérieur, et son script est un fichier séparé, à cause de la CSP.
+- Les **prix** sont en millimes (`formatMillimes` dans `@buslive/shared`).
+
 ## Authentification
 
 | Route                        | Accès          | Rôle                                |
@@ -194,6 +225,9 @@ src/
   favorites/         lignes et arrêts favoris
   alerts/            alertes « mon trajet » (CRUD, cache par ligne pour le moteur)
   notifications/     moteur d'alertes, historique, appareils, envoi push (FCM / console)
+  louage/            stations de louage proches et destinations
+  rides/             covoiturage (annonces, demandes, acceptation, signalement)
+  trips/             « Partager mon trajet » : liens de suivi et page web /t/<jeton>
   network/           gouvernorats, lignes, arrêts, horaires (lecture)
   users/             accès aux utilisateurs, PATCH /me (langue, préférences)
   health/            routes de santé (Terminus) + indicateur PostGIS

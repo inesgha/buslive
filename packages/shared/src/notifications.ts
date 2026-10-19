@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
+import { tunisClock } from './clock';
 import type { Locale } from './i18n';
 import { type ReportType, ReportTypeSchema } from './reports';
+import { minutesToTime } from './schedule';
 
 /**
  * Notifications : types, contenu, et textes en français et en arabe.
@@ -14,7 +16,21 @@ export const NOTIFICATION_TYPES = [
   'LINE_INCIDENT', // un signalement confirmé touche le trajet d'une alerte
   'REPORT_RESOLVED', // mon signalement a été confirmé ou démenti
   'TEST', // notification d'essai demandée depuis le Profil
+  // Covoiturage (phase 9)
+  'RIDE_REQUESTED', // au conducteur : un passager demande des places
+  'RIDE_ACCEPTED', // au passager : demande acceptée (numéros échangés)
+  'RIDE_DECLINED', // au passager : demande refusée
+  'RIDE_CANCELLED', // aux passagers : le conducteur a annulé le trajet
 ] as const;
+
+/** Types liés au covoiturage (même contenu, même canal). */
+export const RIDE_NOTIFICATION_TYPES = [
+  'RIDE_REQUESTED',
+  'RIDE_ACCEPTED',
+  'RIDE_DECLINED',
+  'RIDE_CANCELLED',
+] as const;
+export type RideNotificationType = (typeof RIDE_NOTIFICATION_TYPES)[number];
 export const NotificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
@@ -26,7 +42,7 @@ export type PushPlatform = z.infer<typeof PushPlatformSchema>;
  * Canaux Android : chacun peut être coupé séparément dans les réglages du
  * téléphone. L'app les crée avec les mêmes identifiants.
  */
-export const NOTIFICATION_CHANNELS = ['approaching', 'incidents', 'account'] as const;
+export const NOTIFICATION_CHANNELS = ['approaching', 'incidents', 'rides', 'account'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 export function channelFor(type: NotificationType): NotificationChannel {
@@ -35,6 +51,11 @@ export function channelFor(type: NotificationType): NotificationChannel {
       return 'approaching';
     case 'LINE_INCIDENT':
       return 'incidents';
+    case 'RIDE_REQUESTED':
+    case 'RIDE_ACCEPTED':
+    case 'RIDE_DECLINED':
+    case 'RIDE_CANCELLED':
+      return 'rides';
     default:
       return 'account';
   }
@@ -89,6 +110,17 @@ const ReportResolvedDataSchema = z.object({
   points: z.number().int(),
 });
 
+const RideEventDataSchema = z.object({
+  offerId: z.uuid(),
+  fromNameFr: z.string(),
+  fromNameAr: z.string(),
+  toNameFr: z.string(),
+  toNameAr: z.string(),
+  departureAt: z.iso.datetime(),
+  seats: z.number().int().positive(),
+});
+export type RideEventData = z.infer<typeof RideEventDataSchema>;
+
 const BusApproaching = z.object({
   type: z.literal('BUS_APPROACHING'),
   data: BusApproachingDataSchema,
@@ -99,6 +131,10 @@ const ReportResolved = z.object({
   data: ReportResolvedDataSchema,
 });
 const Test = z.object({ type: z.literal('TEST'), data: z.object({}) });
+const RideRequested = z.object({ type: z.literal('RIDE_REQUESTED'), data: RideEventDataSchema });
+const RideAccepted = z.object({ type: z.literal('RIDE_ACCEPTED'), data: RideEventDataSchema });
+const RideDeclined = z.object({ type: z.literal('RIDE_DECLINED'), data: RideEventDataSchema });
+const RideCancelled = z.object({ type: z.literal('RIDE_CANCELLED'), data: RideEventDataSchema });
 
 /** Contenu d'une notification : son type et les données qui vont avec. */
 export const NotificationContentSchema = z.discriminatedUnion('type', [
@@ -106,6 +142,10 @@ export const NotificationContentSchema = z.discriminatedUnion('type', [
   LineIncident,
   ReportResolved,
   Test,
+  RideRequested,
+  RideAccepted,
+  RideDeclined,
+  RideCancelled,
 ]);
 export type NotificationContent = z.infer<typeof NotificationContentSchema>;
 
@@ -121,6 +161,10 @@ export const NotificationSchema = z.discriminatedUnion('type', [
   LineIncident.extend(meta),
   ReportResolved.extend(meta),
   Test.extend(meta),
+  RideRequested.extend(meta),
+  RideAccepted.extend(meta),
+  RideDeclined.extend(meta),
+  RideCancelled.extend(meta),
 ]);
 export type Notification = z.infer<typeof NotificationSchema>;
 
@@ -181,6 +225,8 @@ export function arabicCount(
 
 const arabicMinutes = (n: number) =>
   arabicCount(n, { one: 'دقيقة واحدة', two: 'دقيقتين', few: 'دقائق', many: 'دقيقة' });
+const arabicSeats = (n: number) =>
+  arabicCount(n, { one: 'مقعد واحد', two: 'مقعدين', few: 'مقاعد', many: 'مقعدًا' });
 const arabicPoints = (n: number) =>
   arabicCount(n, { one: 'نقطة واحدة', two: 'نقطتين', few: 'نقاط', many: 'نقطة' });
 
@@ -242,6 +288,11 @@ export function renderNotification(
             body: `Ton signalement sur la ligne ${d.lineCode} a été démenti par d’autres passagers ou par un bus en direct.`,
           };
     }
+    case 'RIDE_REQUESTED':
+    case 'RIDE_ACCEPTED':
+    case 'RIDE_DECLINED':
+    case 'RIDE_CANCELLED':
+      return renderRide(content.type, content.data, locale);
     case 'TEST':
       return ar
         ? { title: 'BusLive', body: 'الإشعارات تعمل على هذا الهاتف.' }
@@ -282,6 +333,70 @@ function renderIncident(
   return { title: `Ligne ${d.lineCode} : ${label}`, body: `${bodies[d.reportType]}${confirmed}` };
 }
 
+/** « 19/10 à 07:30 » (heure de Tunis), pour les trajets de covoiturage. */
+function rideWhen(departureAt: string, locale: Locale): string {
+  const clock = tunisClock(new Date(departureAt));
+  const [, month, day] = clock.isoDate.split('-');
+  const time = minutesToTime(clock.minutes);
+  return locale === 'ar'
+    ? `يوم ${day}/${month} على الساعة ${time}`
+    : `le ${day}/${month} à ${time}`;
+}
+
+function renderRide(
+  type: RideNotificationType,
+  d: RideEventData,
+  locale: Locale,
+): RenderedNotification {
+  const when = rideWhen(d.departureAt, locale);
+  if (locale === 'ar') {
+    // En arabe, une flèche serait lue à l'envers : « من … إلى … ».
+    const trip = `من ${d.fromNameAr} إلى ${d.toNameAr}`;
+    switch (type) {
+      case 'RIDE_REQUESTED':
+        return {
+          title: 'طلب جديد لمشاركة السيارة',
+          body: `طلب راكب ${arabicSeats(d.seats)} لرحلتك ${trip}، ${when}.`,
+        };
+      case 'RIDE_ACCEPTED':
+        return {
+          title: 'تمّ قبول طلبك',
+          body: `قبل السائق طلبك للرحلة ${trip}، ${when}. رقم هاتفه في التطبيق.`,
+        };
+      case 'RIDE_DECLINED':
+        return {
+          title: 'تمّ رفض طلبك',
+          body: `لم يتمكّن السائق من قبول طلبك للرحلة ${trip}.`,
+        };
+      case 'RIDE_CANCELLED':
+        return { title: 'تمّ إلغاء الرحلة', body: `ألغى السائق الرحلة ${trip}، ${when}.` };
+    }
+  }
+  const trip = `${d.fromNameFr} → ${d.toNameFr}`;
+  switch (type) {
+    case 'RIDE_REQUESTED':
+      return {
+        title: 'Nouvelle demande de covoiturage',
+        body: `Un passager demande ${d.seats} place(s) pour ton trajet ${trip}, ${when}.`,
+      };
+    case 'RIDE_ACCEPTED':
+      return {
+        title: 'Covoiturage confirmé',
+        body: `Le conducteur a accepté ta demande pour ${trip}, ${when}. Son numéro est dans l’app.`,
+      };
+    case 'RIDE_DECLINED':
+      return {
+        title: 'Demande de covoiturage refusée',
+        body: `Le conducteur n’a pas pu accepter ta demande pour ${trip}.`,
+      };
+    case 'RIDE_CANCELLED':
+      return {
+        title: 'Covoiturage annulé',
+        body: `Le conducteur a annulé le trajet ${trip}, ${when}.`,
+      };
+  }
+}
+
 /** Écran à ouvrir quand on touche la notification (chemin expo-router). */
 export function notificationUrl(content: NotificationContent): string {
   switch (content.type) {
@@ -290,6 +405,11 @@ export function notificationUrl(content: NotificationContent): string {
       return `/lines/${content.data.lineId}`;
     case 'REPORT_RESOLVED':
       return '/profile';
+    case 'RIDE_REQUESTED':
+    case 'RIDE_ACCEPTED':
+    case 'RIDE_DECLINED':
+    case 'RIDE_CANCELLED':
+      return `/rides/${content.data.offerId}`;
     default:
       return '/alerts';
   }

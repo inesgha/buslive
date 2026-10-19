@@ -1,4 +1,10 @@
-import type { Governorate, LineDetail, LineSummary, StopDetail } from '@buslive/shared';
+import type {
+  Governorate,
+  LineDetail,
+  LineSummary,
+  LocalityOption,
+  StopDetail,
+} from '@buslive/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,6 +15,7 @@ import {
   toGeoPoints,
   toGovernorate,
   toLineSummary,
+  toLocalityOption,
   toServiceCalendar,
   toStopSummary,
 } from './network.mapper';
@@ -23,6 +30,19 @@ export class NetworkService {
       orderBy: { nameFr: 'asc' },
     });
     return governorates.map(toGovernorate);
+  }
+
+  /**
+   * Localités connues (départs et destinations des louages et du covoiturage).
+   * Toutes sont renvoyées, même hors des gouvernorats ouverts : on peut aller
+   * de Mahdia à Tunis.
+   */
+  async listLocalities(): Promise<LocalityOption[]> {
+    const localities = await this.prisma.locality.findMany({
+      include: { governorate: true },
+      orderBy: { nameFr: 'asc' },
+    });
+    return localities.map(toLocalityOption);
   }
 
   async listLines(governorateCode?: string): Promise<LineSummary[]> {

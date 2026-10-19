@@ -62,3 +62,16 @@ export interface LineData {
     departures: DeparturesByCalendar;
   };
 }
+
+export interface LouageStationData {
+  code: string;
+  localityCode: string;
+  nameFr: string;
+  nameAr: string;
+  latitude: number;
+  longitude: number;
+  openingMinutes: number | null;
+  closingMinutes: number | null;
+  /** [code de la localité de destination, prix en millimes, durée en minutes]. */
+  routes: [destinationCode: string, priceMillimes: number, durationMinutes: number][];
+}

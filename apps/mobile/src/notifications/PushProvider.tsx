@@ -73,6 +73,7 @@ export function PushProvider({ children }: { children: ReactNode }) {
       await configureNotifications({
         approaching: t('notifications.channels.approaching'),
         incidents: t('notifications.channels.incidents'),
+        rides: t('notifications.channels.rides'),
         account: t('notifications.channels.account'),
       });
       const current = await getPushPermission();

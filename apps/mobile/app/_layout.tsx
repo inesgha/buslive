@@ -146,6 +146,10 @@ function RootStack() {
       <Stack.Screen name="share" options={{ title: t('share.title'), presentation: 'modal' }} />
       {/* Le titre (création ou modification) est fixé par l'écran lui-même. */}
       <Stack.Screen name="alerts/edit" options={{ title: '', presentation: 'modal' }} />
+      <Stack.Screen name="alternatives" options={{ title: t('alternatives.title') }} />
+      {/* Titres fixés par les écrans eux-mêmes. */}
+      <Stack.Screen name="rides/[id]" options={{ title: '' }} />
+      <Stack.Screen name="rides/new" options={{ title: '', presentation: 'modal' }} />
     </Stack>
   );
 }

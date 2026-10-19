@@ -79,7 +79,6 @@
     "unread": "Non lue",
     "loadError": "Impossible de charger tes alertes.",
     "alternativesTitle": "Alternatives (louage, covoiturage)",
-    "alternativesSoon": "Bientôt disponible.",
     "summary": "{{days}} · de {{start}} à {{end}}",
     "lead": "Prévenir {{minutes}} min avant",
     "liveOnly": "« Bus qui approche » ne marche que si un passager partage la position du bus.",
@@ -139,7 +138,9 @@
     "now": "Maintenant",
     "inMinutes": "dans {{count}} min",
     "at": "à {{time}}",
-    "tomorrowAt": "demain à {{time}}"
+    "tomorrowAt": "demain à {{time}}",
+    "todayAt": "aujourd’hui à {{time}}",
+    "dateAt": "le {{date}} à {{time}}"
   },
   "units": {
     "meters": "{{value}} m",
@@ -150,7 +151,8 @@
     "nextPassage": "Prochain passage",
     "todayDepartures": "Départs du jour depuis le terminus",
     "noServiceToday": "Pas de service aujourd’hui.",
-    "error": "Impossible de charger la ligne."
+    "error": "Impossible de charger la ligne.",
+    "alternatives": "Bus en retard ou absent ? Voir les alternatives"
   },
   "offline": {
     "banner": "Hors ligne — horaires théoriques"
@@ -291,7 +293,8 @@
     "channels": {
       "approaching": "Bus qui approche",
       "incidents": "Perturbations",
-      "account": "Mon compte"
+      "account": "Mon compte",
+      "rides": "Covoiturage"
     },
     "status": {
       "granted": "Activées sur ce téléphone.",
@@ -311,5 +314,112 @@
   },
   "stopActions": {
     "createAlert": "Créer une alerte pour cet arrêt"
+  },
+  "alternatives": {
+    "title": "Alternatives",
+    "find": "Trouver une alternative",
+    "intro": "Louages et covoiturage, pour arriver à destination quand le bus manque.",
+    "destination": "Où vas-tu ?",
+    "anyDestination": "Toutes",
+    "louageTitle": "Louages près de toi",
+    "louageNone": "Aucune station de louage proche pour cette destination.",
+    "louageError": "Impossible de charger les louages.",
+    "open": "Ouverte",
+    "closed": "Fermée",
+    "hours": "de {{from}} à {{to}}",
+    "route": "{{price}} · ~{{minutes}} min",
+    "priceNote": "Prix habituel d’une place, à titre indicatif (données de démonstration).",
+    "ridesTitle": "Covoiturage",
+    "ridesSignIn": "Connecte-toi pour voir et proposer des trajets.",
+    "ridesNone": "Aucun trajet proposé pour le moment.",
+    "offerRide": "Proposer un trajet",
+    "myRides": "Mes covoiturages"
+  },
+  "rides": {
+    "title": "Covoiturage",
+    "seatsLeft": "Places libres : {{count}}",
+    "price": "{{price}} par place",
+    "driver": "Conducteur : {{name}}",
+    "safety": "Prudence : vérifie qui conduit, préviens un proche de ton trajet. BusLive ne transporte personne et ne gère aucun paiement.",
+    "cancelled": "Trajet annulé",
+    "past": "Trajet passé",
+    "seatsLabel": "Places",
+    "request": "Demander des places",
+    "myRequest": {
+      "PENDING": "Demande envoyée : en attente de la réponse du conducteur.",
+      "ACCEPTED": "Demande acceptée.",
+      "DECLINED": "Le conducteur n’a pas accepté ta demande.",
+      "CANCELLED": "Demande annulée."
+    },
+    "cancelRequest": "Annuler ma demande",
+    "call": "Appeler le {{phone}}",
+    "requests": "Demandes",
+    "noRequests": "Aucune demande pour l’instant.",
+    "requestLine": "{{name}} · places : {{count}}",
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "requestStatus": {
+      "PENDING": "En attente",
+      "ACCEPTED": "Acceptée",
+      "DECLINED": "Refusée",
+      "CANCELLED": "Annulée"
+    },
+    "cancelRide": "Annuler ce trajet",
+    "cancelConfirmTitle": "Annuler ce trajet ?",
+    "cancelConfirmMessage": "Les passagers seront prévenus.",
+    "confirm": "Confirmer",
+    "flag": "Signaler ce trajet",
+    "flagTitle": "Pourquoi signaler ce trajet ?",
+    "flagReasons": {
+      "FAKE": "Faux trajet",
+      "UNSAFE": "Dangereux",
+      "INAPPROPRIATE": "Inapproprié"
+    },
+    "flagged": "Merci, le signalement sera examiné.",
+    "error": "Action impossible.",
+    "phoneRequired": "Ajoute ton numéro de téléphone dans le Profil pour utiliser le covoiturage.",
+    "notFound": "Ce trajet n’existe plus.",
+    "mineTitle": "Mes trajets proposés",
+    "requestedTitle": "Mes demandes",
+    "nothingYet": "Rien pour le moment."
+  },
+  "rideForm": {
+    "title": "Proposer un trajet",
+    "from": "Départ",
+    "to": "Arrivée",
+    "day": "Jour",
+    "time": "Heure de départ",
+    "seats": "Places proposées",
+    "price": "Participation par place",
+    "priceHint": "Réglée de la main à la main : BusLive ne gère aucun paiement.",
+    "decrease": "{{label}} : moins",
+    "increase": "{{label}} : plus",
+    "publish": "Publier",
+    "incomplete": "Choisis un départ et une arrivée différents.",
+    "error": "Impossible de publier le trajet.",
+    "today": "Aujourd’hui",
+    "tomorrow": "Demain"
+  },
+  "tripShare": {
+    "title": "Partager mon trajet",
+    "intro": "Un proche suit ton bus en direct, sans installer l’app. Le lien expire à la fin du partage.",
+    "destination": "Où descends-tu ?",
+    "share": "Envoyer le lien",
+    "message": "Je suis dans le bus {{line}} {{headsign}}, je descends à {{stop}}. Suis mon trajet en direct : {{url}}",
+    "active": "Liens actifs",
+    "linkTo": "Descente à {{stop}} · expire à {{time}}",
+    "revoke": "Désactiver",
+    "error": "Impossible de créer le lien.",
+    "devNote": "En développement, le lien ne s’ouvre que sur le même Wi-Fi que ton PC."
+  },
+  "phone": {
+    "title": "Téléphone",
+    "hint": "Seulement pour le covoiturage : il n’est montré qu’à la personne dont tu acceptes la demande, ou qui accepte la tienne.",
+    "placeholder": "22 123 456",
+    "save": "Enregistrer",
+    "remove": "Retirer",
+    "invalid": "Numéro tunisien invalide.",
+    "taken": "Ce numéro est déjà utilisé par un autre compte.",
+    "saved": "Numéro enregistré."
   }
 }

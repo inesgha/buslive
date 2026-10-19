@@ -7,6 +7,8 @@ import {
   LineSummarySchema,
   type LinesQuery,
   LinesQuerySchema,
+  type LocalityOption,
+  LocalityOptionSchema,
   type NearbyStop,
   NearbyStopSchema,
   type NearbyStopsQuery,
@@ -58,6 +60,13 @@ export class NetworkController {
   @ApiOkResponse({ schema: zodToOpenApi(z.array(GovernorateSchema), 'output') })
   listGovernorates(): Promise<Governorate[]> {
     return this.network.listGovernorates();
+  }
+
+  @Get('localities')
+  @ApiOperation({ summary: 'Localités (départs et destinations : louages, covoiturage)' })
+  @ApiOkResponse({ schema: zodToOpenApi(z.array(LocalityOptionSchema), 'output') })
+  listLocalities(): Promise<LocalityOption[]> {
+    return this.network.listLocalities();
   }
 
   @Get('lines')

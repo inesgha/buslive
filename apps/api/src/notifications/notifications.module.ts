@@ -16,5 +16,7 @@ import { pushSenderProvider } from './push/push.provider';
   imports: [LiveModule, ReportsModule, AlertsModule],
   controllers: [NotificationsController],
   providers: [NotificationsService, AlertEngine, pushSenderProvider],
+  // Le covoiturage (phase 9) envoie ses notifications par ce service.
+  exports: [NotificationsService],
 })
 export class NotificationsModule {}

@@ -59,3 +59,16 @@ export function formatNotificationTime(isoDateTime: string, clock: ServiceClock)
   const [, month, day] = at.isoDate.split('-');
   return `${day}/${month} · ${time}`;
 }
+
+/**
+ * Départ d'un trajet (heure de Tunis) : « aujourd'hui à 07:30 »,
+ * « demain à 07:30 » ou « le 21/10 à 07:30 ».
+ */
+export function formatDeparture(isoDateTime: string, clock: ServiceClock, t: TFunction): string {
+  const at = tunisClock(new Date(isoDateTime));
+  const time = minutesToTime(at.minutes);
+  if (at.isoDate === clock.isoDate) return t('time.todayAt', { time });
+  if (at.isoDate === addDays(clock.isoDate, 1)) return t('time.tomorrowAt', { time });
+  const [, month, day] = at.isoDate.split('-');
+  return t('time.dateAt', { date: `${day}/${month}`, time });
+}

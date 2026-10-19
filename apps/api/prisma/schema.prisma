@@ -60,6 +60,10 @@ model User {
   alerts        Alert[]
   pushDevices   PushDevice[]
   notifications Notification[]
+  rideOffers    RideOffer[]
+  rideRequests  RideRequest[]
+  rideFlags     RideFlag[]
+  tripShares    TripShare[]
 
   @@map("users")
 }
@@ -122,9 +126,10 @@ model Governorate {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  localities Locality[]
-  lines      Line[]
-  stops      Stop[]
+  localities     Locality[]
+  lines          Line[]
+  stops          Stop[]
+  louageStations LouageStation[]
 
   @@map("governorates")
 }
@@ -138,8 +143,12 @@ model Locality {
   nameFr        String @map("name_fr")
   nameAr        String @map("name_ar")
 
-  governorate Governorate @relation(fields: [governorateId], references: [id], onDelete: Restrict)
-  stops       Stop[]
+  governorate        Governorate     @relation(fields: [governorateId], references: [id], onDelete: Restrict)
+  stops              Stop[]
+  louageStations     LouageStation[]
+  louageDestinations LouageRoute[]
+  ridesFrom          RideOffer[]     @relation("RideFrom")
+  ridesTo            RideOffer[]     @relation("RideTo")
 
   @@index([governorateId])
   @@map("localities")
@@ -239,6 +248,7 @@ model Stop {
   observations StopPassageObservation[]
   favoritedBy  FavoriteStop[]
   alerts       Alert[]
+  tripShares   TripShare[]
 
   /// Index spatial : rend rapides les recherches « arrêts à moins de X mètres ».
   @@index([location], type: Gist)
@@ -338,9 +348,10 @@ model LiveSession {
   acceptedPositions Int                   @default(0) @map("accepted_positions")
   rejectedPositions Int                   @default(0) @map("rejected_positions")
 
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  line      Line          @relation(fields: [lineId], references: [id], onDelete: Cascade)
-  direction LineDirection @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  line       Line          @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  direction  LineDirection @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  tripShares TripShare[]
 
   @@index([userId, status])
   @@index([lineId, status])
@@ -507,6 +518,10 @@ enum NotificationType {
   LINE_INCIDENT
   REPORT_RESOLVED
   TEST
+  RIDE_REQUESTED
+  RIDE_ACCEPTED
+  RIDE_DECLINED
+  RIDE_CANCELLED
 }
 
 model FavoriteLine {
@@ -604,4 +619,154 @@ model Notification {
   @@index([userId, createdAt])
   @@index([createdAt])
   @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Alternatives (louage, covoiturage) et « Partager mon trajet » (phase 9)
+// ---------------------------------------------------------------------------
+
+/// Station de louage (taxis collectifs). Données de référence, modérées.
+model LouageStation {
+  id             String                                 @id @default(uuid()) @db.Uuid
+  code           String                                 @unique
+  governorateId  String                                 @map("governorate_id") @db.Uuid
+  localityId     String?                                @map("locality_id") @db.Uuid
+  nameFr         String                                 @map("name_fr")
+  nameAr         String                                 @map("name_ar")
+  latitude       Float
+  longitude      Float
+  /// Point PostGIS CALCULÉ par le trigger « louage_stations_set_location » (comme stops.location).
+  location       Unsupported("geography(Point, 4326)")?
+  /// Horaires d'ouverture, en minutes depuis minuit (heure de Tunis) ; null = inconnus.
+  openingMinutes Int?                                   @map("opening_minutes")
+  closingMinutes Int?                                   @map("closing_minutes")
+  status         ModerationStatus                       @default(PENDING)
+  createdAt      DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  governorate Governorate   @relation(fields: [governorateId], references: [id], onDelete: Restrict)
+  locality    Locality?     @relation(fields: [localityId], references: [id], onDelete: SetNull)
+  routes      LouageRoute[]
+
+  @@index([location], type: Gist)
+  @@map("louage_stations")
+}
+
+/// Destination desservie depuis une station, avec le prix habituel d'une place.
+model LouageRoute {
+  id                    String @id @default(uuid()) @db.Uuid
+  stationId             String @map("station_id") @db.Uuid
+  destinationLocalityId String @map("destination_locality_id") @db.Uuid
+  /// En millimes (1 DT = 1000 millimes).
+  priceMillimes         Int    @map("price_millimes")
+  durationMinutes       Int    @map("duration_minutes")
+
+  station     LouageStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  destination Locality      @relation(fields: [destinationLocalityId], references: [id], onDelete: Restrict)
+
+  @@unique([stationId, destinationLocalityId])
+  @@index([destinationLocalityId])
+  @@map("louage_routes")
+}
+
+/// Doit rester identique à RIDE_OFFER_STATUSES (@buslive/shared).
+enum RideOfferStatus {
+  ACTIVE
+  CANCELLED
+}
+
+/// Doit rester identique à RIDE_REQUEST_STATUSES (@buslive/shared).
+enum RideRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+/// Doit rester identique à RIDE_FLAG_REASONS (@buslive/shared).
+enum RideFlagReason {
+  FAKE
+  UNSAFE
+  INAPPROPRIATE
+}
+
+/// Trajet proposé par un conducteur. Pas de texte libre ; expire à l'heure de départ.
+model RideOffer {
+  id             String          @id @default(uuid()) @db.Uuid
+  driverId       String          @map("driver_id") @db.Uuid
+  fromLocalityId String          @map("from_locality_id") @db.Uuid
+  toLocalityId   String          @map("to_locality_id") @db.Uuid
+  departureAt    DateTime        @map("departure_at") @db.Timestamptz(3)
+  seats          Int
+  /// Participation par place, en millimes (réglée hors de l'app).
+  priceMillimes  Int             @map("price_millimes")
+  status         RideOfferStatus @default(ACTIVE)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  cancelledAt    DateTime?       @map("cancelled_at") @db.Timestamptz(3)
+
+  driver   User          @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  from     Locality      @relation("RideFrom", fields: [fromLocalityId], references: [id], onDelete: Restrict)
+  to       Locality      @relation("RideTo", fields: [toLocalityId], references: [id], onDelete: Restrict)
+  requests RideRequest[]
+  flags    RideFlag[]
+
+  @@index([status, departureAt])
+  @@index([driverId, status])
+  @@map("ride_offers")
+}
+
+/// Demande de places d'un passager. Une seule par passager et par annonce.
+model RideRequest {
+  id          String            @id @default(uuid()) @db.Uuid
+  offerId     String            @map("offer_id") @db.Uuid
+  passengerId String            @map("passenger_id") @db.Uuid
+  seats       Int
+  status      RideRequestStatus @default(PENDING)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  respondedAt DateTime?         @map("responded_at") @db.Timestamptz(3)
+
+  offer     RideOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  passenger User      @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, passengerId])
+  @@index([passengerId, createdAt])
+  @@map("ride_requests")
+}
+
+/// Annonce signalée par un utilisateur (traitée par la modération, phase 10).
+model RideFlag {
+  id         String         @id @default(uuid()) @db.Uuid
+  offerId    String         @map("offer_id") @db.Uuid
+  reporterId String         @map("reporter_id") @db.Uuid
+  reason     RideFlagReason
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  offer    RideOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  reporter User      @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, reporterId])
+  @@map("ride_flags")
+}
+
+/// Lien « Partager mon trajet ». Seule l'EMPREINTE du jeton est gardée (comme
+/// les refresh tokens) : une fuite de la base ne donne pas accès aux liens.
+model TripShare {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  sessionId         String    @map("session_id") @db.Uuid
+  destinationStopId String    @map("destination_stop_id") @db.Uuid
+  /// SHA-256 du jeton, en hexadécimal.
+  tokenHash         String    @unique @map("token_hash")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
+  /// Le bus a atteint l'arrêt de descente.
+  arrivedAt         DateTime? @map("arrived_at") @db.Timestamptz(3)
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session         LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  destinationStop Stop        @relation(fields: [destinationStopId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId])
+  @@map("trip_shares")
 }

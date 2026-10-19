@@ -41,6 +41,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
       live_sessions,
       departures, line_stops, line_directions, lines, service_calendars,
       notifications, push_devices, alerts, favorite_stops, favorite_lines,
+      trip_shares, ride_flags, ride_requests, ride_offers, louage_routes, louage_stations,
       stops, localities, operators, governorates,
       refresh_tokens, users
     CASCADE

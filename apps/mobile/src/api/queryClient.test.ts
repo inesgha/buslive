@@ -11,6 +11,8 @@ describe('shouldPersistQuery', () => {
     [['stopDepartures', 'abc'], true],
     [['favorites'], true],
     [['alerts'], true],
+    [['localities'], true],
+    [['louageNearby', '35.42', '10.99', ''], true],
   ])('sauvegarde %j quand la requête a réussi', (key, expected) => {
     expect(shouldPersistQuery(query(key, 'success'))).toBe(expected);
   });
@@ -24,5 +26,7 @@ describe('shouldPersistQuery', () => {
     expect(shouldPersistQuery(query(['me'], 'success'))).toBe(false);
     expect(shouldPersistQuery(query(['notifications'], 'success'))).toBe(false);
     expect(shouldPersistQuery(query(['lineReports', 'abc'], 'success'))).toBe(false);
+    expect(shouldPersistQuery(query(['rides', '', ''], 'success'))).toBe(false);
+    expect(shouldPersistQuery(query(['tripShares'], 'success'))).toBe(false);
   });
 });

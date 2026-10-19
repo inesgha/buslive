@@ -57,6 +57,11 @@ export const UpdateProfileSchema = z
   .object({
     locale: LocaleSchema.optional(),
     notifyReportOutcome: z.boolean().optional(),
+    /**
+     * Téléphone (+216…), exigé pour le covoiturage : il n'est montré qu'à la
+     * personne dont on a accepté (ou qui a accepté) la demande. null = le retirer.
+     */
+    phone: TunisianPhoneSchema.nullable().optional(),
   })
   .refine((input) => Object.values(input).some((value) => value !== undefined), {
     message: 'Rien à modifier.',

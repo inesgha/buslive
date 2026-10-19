@@ -7,11 +7,14 @@ import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { validateEnv } from './config/env.schema';
 import { FavoritesModule } from './favorites/favorites.module';
 import { HealthModule } from './health/health.module';
+import { LouageModule } from './louage/louage.module';
 import { LiveModule } from './live/live.module';
 import { NetworkModule } from './network/network.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReportsModule } from './reports/reports.module';
+import { RidesModule } from './rides/rides.module';
+import { TripsModule } from './trips/trips.module';
 
 @Module({
   imports: [
@@ -34,6 +37,9 @@ import { ReportsModule } from './reports/reports.module';
     FavoritesModule,
     AlertsModule,
     NotificationsModule,
+    LouageModule,
+    RidesModule,
+    TripsModule,
     HealthModule,
   ],
 })

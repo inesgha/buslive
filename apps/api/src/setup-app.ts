@@ -1,4 +1,4 @@
-import { type INestApplication, VersioningType } from '@nestjs/common';
+import { type INestApplication, RequestMethod, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -28,7 +28,13 @@ export function setupApp(app: INestApplication): void {
 
   // Routes versionnées : /api/v1/health. Une future v2 pourra cohabiter avec
   // la v1 pour ne pas casser les anciennes versions de l'app mobile.
-  app.setGlobalPrefix(API_PREFIX);
+  // Exception : la page de suivi « Partager mon trajet » (/t/<jeton>), pour un lien court.
+  app.setGlobalPrefix(API_PREFIX, {
+    exclude: [
+      { path: 't/assets/trip.js', method: RequestMethod.GET },
+      { path: 't/:token', method: RequestMethod.GET },
+    ],
+  });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
   // Ferme proprement (connexions à la base…) sur Ctrl+C ou arrêt du conteneur.

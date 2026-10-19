@@ -61,4 +61,18 @@ export const queryKeys = {
   favorites: ['favorites'] as const,
   alerts: ['alerts'] as const,
   notifications: ['notifications'] as const,
+  // Alternatives (phase 9). Louages et localités : gardés hors ligne.
+  localities: ['localities'] as const,
+  louageNearby: (center: GeoPoint, toLocalityId?: string) =>
+    [
+      'louageNearby',
+      center.latitude.toFixed(2),
+      center.longitude.toFixed(2),
+      toLocalityId ?? '',
+    ] as const,
+  // Covoiturage et liens de suivi : données du compte (PERSONAL_KEYS), jamais gardées.
+  rides: (from?: string, to?: string) => ['rides', from ?? '', to ?? ''] as const,
+  ride: (id: string) => ['ride', id] as const,
+  myRides: ['myRides'] as const,
+  tripShares: ['tripShares'] as const,
 };

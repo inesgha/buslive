@@ -135,6 +135,14 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
 - Pluriels : pas de suffixes i18next (`_one`, `_other`) — l'arabe en a six et le
   test de parité des clés casserait. Formuler sans pluriel, ou `arabicCount`
   (shared) pour les textes générés.
+- Alternatives (phase 9) : écran `app/alternatives.tsx` (param `toCode` = code de
+  localité : les arrêts ne connaissent que le code de leur localité), covoiturage
+  dans `app/rides/`, logique pure dans `src/rides/rideForm.ts` (heures saisies en
+  heure de Tunis, envoyées avec `+01:00`). Messages d'erreur du covoiturage :
+  `rideErrorMessage` (les messages de l'API sont en français ; en arabe, un
+  message traduit). En arabe, jamais de flèche « → » dans un trajet (elle se lit
+  à l'envers) : « من … إلى … » ou un tiret. Liens de suivi : `TripShareCard` (dans
+  `share.tsx`) et `tripShareUrl` (adresse de l'API sans `/api/v1`).
 - Tests : `jest-expo` + Testing Library 14 (**`render` est asynchrone : `await render(…)`**).
   Simulations d'AsyncStorage, expo-secure-store, NetInfo et des icônes Ionicons
   dans `jest.setup.cjs`.
@@ -259,6 +267,30 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   query » pendant les tests e2e : il vient de Prisma (requêtes parallèles dans une
   transaction implicite), sans effet avec `pg` 8. Ne pas passer à `pg` 9 avant que
   Prisma le gère.
+- **Alternatives et liens de suivi** (`src/louage/`, `src/rides/`, `src/trips/`) :
+  - montants en MILLIMES (entiers), affichés par `formatMillimes` (shared) ;
+  - `louage_stations.location` : trigger `louage_stations_set_location`, comme
+    `stops.location` ; la migration `alternatives_trip_shares` contient aussi des
+    contraintes CHECK écrites à la main ;
+  - covoiturage : la règle « numéro visible seulement après acceptation, et
+    seulement entre conducteur et passager » est appliquée UNIQUEMENT dans
+    `rides.mapper.ts` (`toRideDetail`). Ne jamais renvoyer `driver.phone` /
+    `passenger.phone` ailleurs. Acceptation dans une transaction avec
+    `SELECT … FOR UPDATE` sur l'annonce (places jamais dépassées) ;
+  - `RidesModule` importe `NotificationsModule` (qui exporte `NotificationsService`) ;
+  - liens de suivi : jeton `randomBytes(24)` en base64url (32 caractères), seule
+    l'empreinte SHA-256 est en base (`trip_shares.token_hash`). Expiration :
+    `tripShareExpiry` (shared). `GET /trips/:token` est public et limité par IP ;
+    même 404 pour un lien inconnu, désactivé ou expiré ;
+  - la page `/t/:token` est servie HORS du préfixe global (exclusion dans
+    `setup-app.ts`) par `TripPageController` (`VERSION_NEUTRAL`). La CSP de helmet
+    interdit les scripts intégrés : le script est servi à part
+    (`/t/assets/trip.js`). Dans la page, insérer les données avec `textContent`,
+    jamais `innerHTML` ;
+  - `StopPassedEvent.sessionId` sert à détecter l'arrivée (`TripsService`). Ne
+    JAMAIS l'enregistrer avec les passages observés (ils restent anonymes) ;
+  - `LiveModule` exporte aussi `LiveRegistry` et `RouteCacheService` (lecture
+    seule pour les liens de suivi).
 - `@buslive/shared` : `departures.ts` est séparé de `network.ts` pour éviter une
   dépendance circulaire avec `reports.ts` (avec zod, un cycle donne des schémas
   `undefined` au chargement).

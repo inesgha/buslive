@@ -2,7 +2,13 @@ import i18n from 'i18next';
 
 import { resources } from '@/i18n';
 
-import { formatDistance, formatEta, formatNotificationTime, formatPassage } from './format';
+import {
+  formatDeparture,
+  formatDistance,
+  formatEta,
+  formatNotificationTime,
+  formatPassage,
+} from './format';
 
 beforeAll(async () => {
   await i18n.init({ resources, lng: 'fr', interpolation: { escapeValue: false } });
@@ -73,5 +79,15 @@ describe('formatNotificationTime', () => {
     // 06:32 UTC = 07:32 à Tunis.
     expect(formatNotificationTime('2026-10-19T06:32:00.000Z', monday0750)).toBe('07:32');
     expect(formatNotificationTime('2026-10-18T17:05:00.000Z', monday0750)).toBe('18/10 · 18:05');
+  });
+});
+
+describe('formatDeparture', () => {
+  it('dit aujourd’hui, demain, ou la date', async () => {
+    await i18n.changeLanguage('fr');
+    const t = i18n.t.bind(i18n);
+    expect(formatDeparture('2026-10-19T08:30:00+01:00', monday0750, t)).toBe('aujourd’hui à 08:30');
+    expect(formatDeparture('2026-10-20T07:00:00+01:00', monday0750, t)).toBe('demain à 07:00');
+    expect(formatDeparture('2026-10-22T18:15:00+01:00', monday0750, t)).toBe('le 22/10 à 18:15');
   });
 });

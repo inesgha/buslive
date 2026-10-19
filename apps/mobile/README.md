@@ -90,6 +90,21 @@ Un nouveau build n'est nécessaire que si l'on ajoute un module **natif**
   **Socket.io** (`src/live/socket.ts`, hook `useLineVehicles`).
 - Le texte affiché avant la demande de position en arrière-plan
   (`share.disclosure`) est une **obligation de Google Play** : ne pas le retirer.
+- **« Partager mon trajet »** (`TripShareCard`, pendant un partage) : l'API crée un
+  lien `/t/<jeton>`, que l'app envoie par la feuille de partage du téléphone. En
+  développement, le lien pointe vers l'adresse du PC (`EXPO_PUBLIC_API_URL` sans
+  `/api/v1`) : il ne s'ouvre que sur le même Wi-Fi. Pour l'essayer, ouvrir le
+  lien dans le navigateur du téléphone ou du PC.
+
+## Alternatives (louage, covoiturage)
+
+- Écran `alternatives` : ouvert depuis l'onglet Alertes, ou depuis le détail
+  d'une ligne, avec comme destination la localité du terminus.
+- Les **louages** et les localités sont gardés hors ligne. Les données de
+  démonstration sont inventées (`apps/api/prisma/seed/data/louage-demo.ts`).
+- **Covoiturage** : pour un compte connecté qui a un téléphone (Profil →
+  Téléphone). Le numéro de l'autre n'apparaît qu'après acceptation, avec un
+  bouton « Appeler ».
 
 ## Notifications push (Firebase Cloud Messaging)
 
@@ -162,7 +177,10 @@ app/                      écrans (expo-router : un fichier = un écran)
     index.tsx             carte : arrêts proches, prochains passages
   lines/[id].tsx          détail d'une ligne : tracé, bus en direct, arrêts, horaires du jour
   alerts/edit.tsx         créer ou modifier une alerte « mon trajet » (fenêtre modale)
-  share.tsx               « Je suis dans le bus » (fenêtre modale)
+  alternatives.tsx        louages proches et covoiturage (paramètre toCode : destination proposée)
+  rides/[id].tsx          détail d'un trajet de covoiturage : demander, accepter, annuler, signaler
+  rides/new.tsx           proposer un trajet (fenêtre modale)
+  share.tsx               « Je suis dans le bus » (fenêtre modale), avec « Partager mon trajet »
   auth/login.tsx          connexion (fenêtre modale)
   auth/register.tsx       inscription (fenêtre modale)
 src/
@@ -176,6 +194,8 @@ src/
   live/                   partage de position (arrière-plan / app ouverte), Socket.io, bus en direct
   notifications/          notifications push (expo-notifications chargé à la demande), PushProvider
   reports/                formulaire de signalement (logique pure), votes, mises à jour en direct
+  rides/                  formulaire de covoiturage (logique pure), messages d'erreur
+  trips/                  adresse des liens « Partager mon trajet »
   storage/                préférences (langue, thème)
   theme/                  couleurs, police, contrastes, style de carte sombre
   time/                   formatage des distances et des heures (« dans 5 min »)

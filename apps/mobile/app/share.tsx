@@ -13,6 +13,7 @@ import { Card } from '@/components/Card';
 import { LineBadge } from '@/components/LineBadge';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { TripShareCard } from '@/components/TripShareCard';
 import { currentLocale } from '@/i18n';
 import { localizedHeadsign, localizedName } from '@/i18n/localized';
 import { isExpoGo } from '@/live/environment';
@@ -182,6 +183,8 @@ function SharingView() {
           </AppText>
         </Card>
       ) : null}
+
+      <TripShareCard sharing={sharing} />
 
       <Button
         label={t('share.stop')}
