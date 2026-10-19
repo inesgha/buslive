@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -78,7 +78,7 @@ jobs:
       DATABASE_URL: postgresql://buslive:buslive@localhost:5432/buslive?schema=public
       JWT_ACCESS_SECRET: ci-only-test-secret-not-used-anywhere-else-0123456789
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
