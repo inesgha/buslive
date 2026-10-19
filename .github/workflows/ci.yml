@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: corepack enable
@@ -79,7 +79,7 @@ jobs:
       JWT_ACCESS_SECRET: ci-only-test-secret-not-used-anywhere-else-0123456789
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: corepack enable
