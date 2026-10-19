@@ -119,6 +119,14 @@ export class RefreshTokenService {
     if (existing) await this.revokeFamily(existing.familyId);
   }
 
+  /** Révoque TOUTES les sessions d'un utilisateur (compte suspendu). */
+  async revokeAllForUser(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   private async revokeFamily(familyId: string): Promise<void> {
     await this.prisma.refreshToken.updateMany({
       where: { familyId, revokedAt: null },

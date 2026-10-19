@@ -1,4 +1,5 @@
 // Point d'entrée unique : les apps importent tout depuis « @buslive/shared ».
+export * from './admin';
 export * from './alerts';
 export * from './auth';
 export * from './clock';

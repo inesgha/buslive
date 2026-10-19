@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { AdminModule } from './admin/admin.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { AuthModule } from './auth/auth.module';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module';
@@ -11,6 +12,7 @@ import { LouageModule } from './louage/louage.module';
 import { LiveModule } from './live/live.module';
 import { NetworkModule } from './network/network.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ProposalsModule } from './proposals/proposals.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReportsModule } from './reports/reports.module';
 import { RidesModule } from './rides/rides.module';
@@ -40,6 +42,8 @@ import { TripsModule } from './trips/trips.module';
     LouageModule,
     RidesModule,
     TripsModule,
+    ProposalsModule,
+    AdminModule,
     HealthModule,
   ],
 })

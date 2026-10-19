@@ -106,6 +106,16 @@ Un nouveau build n'est nécessaire que si l'on ajoute un module **natif**
   Téléphone). Le numéro de l'autre n'apparaît qu'après acceptation, avec un
   bouton « Appeler ».
 
+## Proposer un arrêt
+
+- **Appui long sur la carte** → `app/stops/propose.tsx`. Il faut être **sur
+  place** (à moins de 150 m du point choisi) : la position GPS sert seulement à
+  ce contrôle, et seule sa précision est envoyée.
+- L'arrêt reste invisible jusqu'à la décision d'un modérateur (tableau de bord).
+  S'il est approuvé, le proposant gagne des points et reçoit une notification.
+- Profil → « Mes arrêts proposés » affiche leur statut. La logique est dans
+  `src/proposals/proposalForm.ts`.
+
 ## Notifications push (Firebase Cloud Messaging)
 
 **Expo Go ne reçoit pas les notifications push** sur Android (Expo les a

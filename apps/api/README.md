@@ -137,6 +137,36 @@ Un horaire = un départ du terminus (minutes depuis minuit) + un calendrier
 - Les textes des notifications (fr / ar) viennent de `renderNotification`
   (`@buslive/shared`), dans la langue du compte.
 
+## Admin et modération (phase 10)
+
+| Route                                                     | Rôle      | Effet                                                        |
+| --------------------------------------------------------- | --------- | ------------------------------------------------------------ |
+| `POST /api/v1/auth/web/login` · `refresh` · `logout`      | public    | Session web : refresh token en cookie httpOnly               |
+| `GET /api/v1/admin/dashboard`                             | MODERATOR | Chiffres clés et files de modération                         |
+| `GET /admin/reports` · `POST /admin/reports/:id/decision` | MODERATOR | Lister ; confirmer, démentir ou masquer                      |
+| `GET /admin/stop-moves` · `POST …/:reportId/decision`     | MODERATOR | « Arrêts déplacés » : appliquer ou classer                   |
+| `GET /admin/stop-proposals` · `POST …/:id/decision`       | MODERATOR | Arrêts proposés : approuver (corrections) ou refuser         |
+| `GET /admin/ride-flags` · `POST …/:offerId/decision`      | MODERATOR | Covoiturage signalé : annuler ou classer                     |
+| `GET /admin/users` · `POST /admin/users/:id/suspension`   | MODERATOR | Rechercher ; suspendre ou réactiver                          |
+| `PUT /admin/users/:id/role`                               | ADMIN     | Changer un rôle (jamais le sien)                             |
+| `GET`/`PATCH /admin/governorates/:code`                   | ADMIN     | Ouvrir ou fermer un gouvernorat                              |
+| `GET /admin/stops` · `PATCH /admin/stops/:id`             | ADMIN     | Rechercher, corriger un arrêt                                |
+| `GET`/`POST`/`PUT`/`DELETE /admin/louage-stations`        | ADMIN     | Stations de louage et tarifs (archivage, pas de suppression) |
+| `GET /admin/moderation-log`                               | MODERATOR | Journal des actions                                          |
+| `POST /api/v1/stops/proposals` · `GET /me/stop-proposals` | connecté  | Proposer un arrêt (app mobile) ; mes propositions            |
+
+- **Rôles** : `@MinRole('MODERATOR')` sur le contrôleur, `@MinRole('ADMIN')` sur
+  les routes sensibles. Un modérateur ne peut suspendre qu'un compte de rôle
+  **inférieur** au sien.
+- **Journal** (`moderation_actions`) : chaque action y est écrite, dans la même
+  transaction quand c'est possible. Un trigger PostgreSQL refuse toute
+  modification ou suppression.
+- **Suspension** : connexion refusée (403), toutes les sessions révoquées ; les
+  access tokens en cours expirent d'eux-mêmes (15 min au plus).
+- **Décision sur un signalement** : même chemin que les votes (`finalize`) :
+  points versés une seule fois.
+- **Premier administrateur** : `pnpm --filter @buslive/api user:role <email> ADMIN`.
+
 ## Alternatives et « Partager mon trajet » (phase 9)
 
 | Route                                          | Accès          | Rôle                                                        |
@@ -197,17 +227,18 @@ me(@CurrentUser() user: AuthenticatedUser) { … }   // { id, role }
 
 ## Scripts
 
-| Script            | Effet                                                         |
-| ----------------- | ------------------------------------------------------------- |
-| `dev`             | Compile avec `tsc-watch` et relance l'API à chaque changement |
-| `build` / `start` | Compile dans `dist/` / lance la version compilée              |
-| `test`            | Tests unitaires (`src/**/*.test.ts`, sans base)               |
-| `test:e2e`        | Tests de bout en bout (`test/*.e2e-test.ts`, base `_test`)    |
-| `prisma:migrate`  | Crée et applique une migration, puis régénère le client       |
-| `prisma:deploy`   | Applique les migrations existantes (production, CI)           |
-| `prisma:generate` | Régénère le client Prisma (fait aussi par `pnpm install`)     |
-| `prisma:studio`   | Interface web pour explorer les données                       |
-| `db:seed`         | Insère les gouvernorats et le réseau de démonstration         |
+| Script            | Effet                                                            |
+| ----------------- | ---------------------------------------------------------------- |
+| `dev`             | Compile avec `tsc-watch` et relance l'API à chaque changement    |
+| `build` / `start` | Compile dans `dist/` / lance la version compilée                 |
+| `test`            | Tests unitaires (`src/**/*.test.ts`, sans base)                  |
+| `test:e2e`        | Tests de bout en bout (`test/*.e2e-test.ts`, base `_test`)       |
+| `prisma:migrate`  | Crée et applique une migration, puis régénère le client          |
+| `prisma:deploy`   | Applique les migrations existantes (production, CI)              |
+| `prisma:generate` | Régénère le client Prisma (fait aussi par `pnpm install`)        |
+| `prisma:studio`   | Interface web pour explorer les données                          |
+| `db:seed`         | Insère les gouvernorats et le réseau de démonstration            |
+| `user:role`       | Donne un rôle à un compte : `<email> ADMIN` (ou USER, MODERATOR) |
 
 ## Organisation
 
@@ -228,6 +259,8 @@ src/
   louage/            stations de louage proches et destinations
   rides/             covoiturage (annonces, demandes, acceptation, signalement)
   trips/             « Partager mon trajet » : liens de suivi et page web /t/<jeton>
+  proposals/         arrêts proposés par les passagers
+  admin/             tableau de bord, modération, comptes, réseau, journal
   network/           gouvernorats, lignes, arrêts, horaires (lecture)
   users/             accès aux utilisateurs, PATCH /me (langue, préférences)
   health/            routes de santé (Terminus) + indicateur PostGIS

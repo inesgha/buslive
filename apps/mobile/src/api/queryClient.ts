@@ -51,6 +51,7 @@ const PERSONAL_KEYS = [
   'ride',
   'myRides',
   'tripShares',
+  'myStopProposals',
 ] as const;
 
 /**

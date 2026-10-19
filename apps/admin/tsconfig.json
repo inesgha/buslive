@@ -1,0 +1,12 @@
+{
+  // Application web (navigateur) : DOM, JSX, types de Vite (import.meta.env).
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"],
+    "noEmit": true,
+    "declaration": false
+  },
+  "include": ["src", "vite.config.ts"]
+}

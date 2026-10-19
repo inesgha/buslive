@@ -101,6 +101,16 @@ Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
    pnpm dev:mobile    # puis scanner le QR code avec Expo Go
    ```
 
+7. Tableau de bord admin (modération). Commence par donner le rôle ADMIN à ton
+   compte, créé dans l'app :
+
+   ```bash
+   pnpm --filter @buslive/api user:role ton-email@exemple.tn ADMIN
+   pnpm dev:admin     # http://localhost:5173
+   ```
+
+   Détails : [apps/admin/README.md](apps/admin/README.md).
+
 ## Commandes utiles
 
 | Commande          | Effet                                                  |
@@ -111,6 +121,7 @@ Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Historique des
 | `pnpm test:e2e`   | Lance les tests de bout en bout (base démarrée)        |
 | `pnpm dev:api`    | Lance l'API avec rechargement automatique              |
 | `pnpm dev:mobile` | Lance l'app mobile (Expo, QR code pour Expo Go)        |
+| `pnpm dev:admin`  | Lance le tableau de bord admin (Vite, port 5173)       |
 | `pnpm lint`       | Analyse le code avec ESLint (`lint:fix` pour corriger) |
 | `pnpm format`     | Formate le code avec Prettier                          |
 | `pnpm db:up`      | Démarre PostgreSQL + PostGIS                           |

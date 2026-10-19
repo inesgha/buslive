@@ -150,6 +150,10 @@ function RootStack() {
       {/* Titres fixés par les écrans eux-mêmes. */}
       <Stack.Screen name="rides/[id]" options={{ title: '' }} />
       <Stack.Screen name="rides/new" options={{ title: '', presentation: 'modal' }} />
+      <Stack.Screen
+        name="stops/propose"
+        options={{ title: t('proposal.title'), presentation: 'modal' }}
+      />
     </Stack>
   );
 }

@@ -31,39 +31,42 @@ enum Locale {
 }
 
 model User {
-  id                  String   @id @default(uuid()) @db.Uuid
+  id                  String    @id @default(uuid()) @db.Uuid
   /// Toujours stocké nettoyé et en minuscules (voir EmailSchema).
-  email               String   @unique
+  email               String    @unique
   /// Empreinte argon2id du mot de passe, jamais le mot de passe lui-même.
-  passwordHash        String   @map("password_hash")
-  displayName         String   @map("display_name")
-  role                Role     @default(USER)
-  locale              Locale   @default(fr)
+  passwordHash        String    @map("password_hash")
+  displayName         String    @map("display_name")
+  role                Role      @default(USER)
+  locale              Locale    @default(fr)
   /// Format +216XXXXXXXX. Réservé à une future connexion par SMS.
-  phone               String?  @unique
+  phone               String?   @unique
   /// Score de confiance (voir TRUST_RULES dans @buslive/shared), entre -100 et 1000.
-  trustScore          Int      @default(0) @map("trust_score")
+  trustScore          Int       @default(0) @map("trust_score")
   /// Notification quand mes signalements sont confirmés ou démentis (phase 8).
-  notifyReportOutcome Boolean  @default(true) @map("notify_report_outcome")
-  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  notifyReportOutcome Boolean   @default(true) @map("notify_report_outcome")
+  /// Compte suspendu par un modérateur : connexion refusée, sessions révoquées.
+  suspendedAt         DateTime? @map("suspended_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  refreshTokens RefreshToken[]
-  proposedLines Line[]
-  proposedStops Stop[]
-  liveSessions  LiveSession[]
-  reports       Report[]
-  reportVotes   ReportVote[]
-  trustEvents   TrustEvent[]
-  favoriteLines FavoriteLine[]
-  favoriteStops FavoriteStop[]
-  alerts        Alert[]
-  pushDevices   PushDevice[]
-  notifications Notification[]
-  rideOffers    RideOffer[]
-  rideRequests  RideRequest[]
-  rideFlags     RideFlag[]
-  tripShares    TripShare[]
+  refreshTokens     RefreshToken[]
+  proposedLines     Line[]
+  proposedStops     Stop[]
+  liveSessions      LiveSession[]
+  reports           Report[]
+  reportVotes       ReportVote[]
+  trustEvents       TrustEvent[]
+  favoriteLines     FavoriteLine[]
+  favoriteStops     FavoriteStop[]
+  alerts            Alert[]
+  pushDevices       PushDevice[]
+  notifications     Notification[]
+  rideOffers        RideOffer[]
+  rideRequests      RideRequest[]
+  rideFlags         RideFlag[]
+  tripShares        TripShare[]
+  moderationActions ModerationAction[]
 
   @@map("users")
 }
@@ -222,23 +225,27 @@ model LineDirection {
 }
 
 model Stop {
-  id            String                                 @id @default(uuid()) @db.Uuid
+  id              String                                 @id @default(uuid()) @db.Uuid
   /// Identifiant stable et lisible, ex. « mahdia-gare-routiere ».
-  code          String                                 @unique
-  governorateId String                                 @map("governorate_id") @db.Uuid
-  localityId    String?                                @map("locality_id") @db.Uuid
-  nameFr        String                                 @map("name_fr")
-  nameAr        String                                 @map("name_ar")
-  latitude      Float
-  longitude     Float
+  code            String                                 @unique
+  governorateId   String                                 @map("governorate_id") @db.Uuid
+  localityId      String?                                @map("locality_id") @db.Uuid
+  nameFr          String                                 @map("name_fr")
+  nameAr          String                                 @map("name_ar")
+  latitude        Float
+  longitude       Float
   /// Point PostGIS CALCULÉ par PostgreSQL à partir de latitude/longitude
   /// (trigger « stops_set_location », voir la migration « network »). Ne jamais
   /// l'écrire : il suffit de modifier latitude et longitude.
-  location      Unsupported("geography(Point, 4326)")?
-  status        ModerationStatus                       @default(PENDING)
-  proposedById  String?                                @map("proposed_by_id") @db.Uuid
-  createdAt     DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  location        Unsupported("geography(Point, 4326)")?
+  status          ModerationStatus                       @default(PENDING)
+  proposedById    String?                                @map("proposed_by_id") @db.Uuid
+  /// Proposition d'un passager (phase 10) : lignes qui passent, selon lui (indication).
+  proposedLineIds String[]                               @default([]) @map("proposed_line_ids") @db.Uuid
+  /// Date de la décision d'un modérateur sur la proposition.
+  reviewedAt      DateTime?                              @map("reviewed_at") @db.Timestamptz(3)
+  createdAt       DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   governorate  Governorate              @relation(fields: [governorateId], references: [id], onDelete: Restrict)
   locality     Locality?                @relation(fields: [localityId], references: [id], onDelete: SetNull)
@@ -398,6 +405,7 @@ enum TrustEventReason {
   VOTE_CORRECT
   VOTE_WRONG
   SHARING_COMPLETED
+  STOP_APPROVED
 }
 
 /// Signalement d'un passager. Pas de texte libre (rien à modérer).
@@ -429,6 +437,8 @@ model Report {
   hidden                 Boolean      @default(false)
   expiresAt              DateTime     @map("expires_at") @db.Timestamptz(3)
   resolvedAt             DateTime?    @map("resolved_at") @db.Timestamptz(3)
+  /// « Arrêt déplacé » examiné par un modérateur (appliqué ou classé).
+  moderatedAt            DateTime?    @map("moderated_at") @db.Timestamptz(3)
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -522,6 +532,7 @@ enum NotificationType {
   RIDE_ACCEPTED
   RIDE_DECLINED
   RIDE_CANCELLED
+  STOP_PROPOSAL_REVIEWED
 }
 
 model FavoriteLine {
@@ -739,6 +750,8 @@ model RideFlag {
   offerId    String         @map("offer_id") @db.Uuid
   reporterId String         @map("reporter_id") @db.Uuid
   reason     RideFlagReason
+  /// Signalement traité par un modérateur.
+  resolvedAt DateTime?      @map("resolved_at") @db.Timestamptz(3)
   createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
 
   offer    RideOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
@@ -769,4 +782,48 @@ model TripShare {
   @@index([sessionId])
   @@index([userId])
   @@map("trip_shares")
+}
+
+// ---------------------------------------------------------------------------
+// Modération (phase 10)
+// ---------------------------------------------------------------------------
+
+/// Doit rester identique à MODERATION_ACTION_TYPES (@buslive/shared).
+enum ModerationActionType {
+  REPORT_CONFIRMED
+  REPORT_REJECTED
+  REPORT_HIDDEN
+  STOP_MOVE_APPLIED
+  STOP_MOVE_DISMISSED
+  STOP_APPROVED
+  STOP_REJECTED
+  STOP_UPDATED
+  RIDE_CANCELLED
+  RIDE_FLAGS_DISMISSED
+  USER_SUSPENDED
+  USER_REINSTATED
+  USER_ROLE_CHANGED
+  GOVERNORATE_UPDATED
+  LOUAGE_STATION_SAVED
+  LOUAGE_STATION_ARCHIVED
+}
+
+/// Journal des actions de modération : JAMAIS modifié ni effacé par l'application.
+model ModerationAction {
+  id          String               @id @default(uuid()) @db.Uuid
+  moderatorId String               @map("moderator_id") @db.Uuid
+  type        ModerationActionType
+  /// « report », « stop », « ride », « user », « governorate », « louage_station ».
+  targetType  String               @map("target_type")
+  targetId    String               @map("target_id")
+  /// Valeurs avant / après.
+  details     Json
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  /// Restrict : on ne peut pas supprimer un compte qui a modéré (le journal reste complet).
+  moderator User @relation(fields: [moderatorId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+  @@map("moderation_actions")
 }

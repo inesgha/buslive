@@ -177,6 +177,32 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
     return toReportDto(updated, userId);
   }
 
+  // --- Modération (phase 10) ---------------------------------------------------
+
+  /**
+   * Décision d'un modérateur : tranche le signalement par le MÊME chemin que les
+   * votes (finalize : points versés une seule fois, historique). « record » écrit
+   * le journal de modération dans la même transaction.
+   */
+  async moderate(
+    reportId: string,
+    decision: Decision,
+    record: (tx: Tx) => Promise<void>,
+    now = new Date(),
+  ): Promise<void> {
+    const report = await this.prisma.report.findUnique({ where: { id: reportId } });
+    if (!report) throw new NotFoundException('Signalement introuvable.');
+    if (report.status !== 'ACTIVE') throw new ConflictException('Ce signalement est déjà clos.');
+    await this.prisma.$transaction(async (tx) => {
+      if (!(await this.finalize(tx, report, decision, now))) {
+        throw new ConflictException('Ce signalement est déjà clos.');
+      }
+      await record(tx);
+    });
+    this.announce(reportId, decision, now);
+    this.publish(await this.load(reportId));
+  }
+
   // --- Lecture --------------------------------------------------------------
 
   /** Signalements visibles d'une ligne (actifs ou confirmés, non expirés). */

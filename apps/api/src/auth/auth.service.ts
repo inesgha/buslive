@@ -1,5 +1,16 @@
-import type { AuthResponse, LoginInput, RegisterInput, UserProfile } from '@buslive/shared';
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  type AuthResponse,
+  hasMinRole,
+  type LoginInput,
+  type RegisterInput,
+  type UserProfile,
+} from '@buslive/shared';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
@@ -62,6 +73,7 @@ export class AuthService {
     if (!user || !valid) {
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
+    checkNotSuspended(user);
 
     return this.buildAuthResponse(user, await this.refreshTokens.issue(user.id, userAgent));
   }
@@ -72,7 +84,31 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Session expirée ou invalide. Reconnecte-toi.');
     }
+    checkNotSuspended(user);
     return this.buildAuthResponse(user, rotated);
+  }
+
+  /**
+   * Connexion au tableau de bord web : seuls les modérateurs et administrateurs
+   * reçoivent une session (un compte simple n'a rien à y faire).
+   */
+  async loginStaff(input: LoginInput, userAgent?: string): Promise<AuthResponse> {
+    const response = await this.login(input, userAgent);
+    if (!hasMinRole(response.user.role, 'MODERATOR')) {
+      await this.refreshTokens.revokeSession(response.tokens.refreshToken);
+      throw new ForbiddenException('Accès réservé aux modérateurs.');
+    }
+    return response;
+  }
+
+  /** Rafraîchissement web : le rôle est revérifié (il a pu être retiré entre-temps). */
+  async refreshStaff(refreshToken: string, userAgent?: string): Promise<AuthResponse> {
+    const response = await this.refresh(refreshToken, userAgent);
+    if (!hasMinRole(response.user.role, 'MODERATOR')) {
+      await this.refreshTokens.revokeSession(response.tokens.refreshToken);
+      throw new ForbiddenException('Accès réservé aux modérateurs.');
+    }
+    return response;
   }
 
   logout(refreshToken: string): Promise<void> {
@@ -99,6 +135,13 @@ export class AuthService {
         refreshTokenExpiresAt: refresh.expiresAt.toISOString(),
       },
     };
+  }
+}
+
+/** Un compte suspendu par un modérateur ne peut plus se connecter. */
+function checkNotSuspended(user: User): void {
+  if (user.suspendedAt) {
+    throw new ForbiddenException('Ce compte est suspendu. Contacte l’équipe BusLive.');
   }
 }
 

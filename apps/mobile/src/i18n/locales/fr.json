@@ -221,7 +221,8 @@
       "REPORT_REJECTED": "Signalement démenti",
       "VOTE_CORRECT": "Avis juste",
       "VOTE_WRONG": "Avis contredit",
-      "SHARING_COMPLETED": "Partage de position d’un bus"
+      "SHARING_COMPLETED": "Partage de position d’un bus",
+      "STOP_APPROVED": "Arrêt proposé approuvé"
     }
   },
   "stats": {
@@ -421,5 +422,27 @@
     "invalid": "Numéro tunisien invalide.",
     "taken": "Ce numéro est déjà utilisé par un autre compte.",
     "saved": "Numéro enregistré."
+  },
+  "proposal": {
+    "title": "Proposer un arrêt",
+    "mapHint": "Un arrêt manque ? Appui long sur la carte, à son emplacement, pour le proposer.",
+    "intro": "Indique le nom de l’arrêt tel qu’on l’appelle dans le quartier. Il restera invisible jusqu’à sa vérification.",
+    "notOnSite": "Approche-toi de l’arrêt (moins de 150 m) : on ne propose un arrêt que sur place.",
+    "nameFr": "Nom de l’arrêt (français)",
+    "nameAr": "Nom en arabe (facultatif)",
+    "lines": "Lignes qui passent ici",
+    "submit": "Envoyer la proposition",
+    "incomplete": "Indique un nom (2 caractères au moins), avec une position GPS précise.",
+    "duplicate": "Un arrêt existe déjà à cet endroit.",
+    "outOfArea": "Cette zone n’est pas encore couverte par BusLive.",
+    "error": "Impossible d’envoyer la proposition.",
+    "moderationNote": "Un modérateur vérifiera l’arrêt. S’il est approuvé, tu gagnes des points de confiance.",
+    "signIn": "Connecte-toi pour proposer un arrêt.",
+    "mine": "Mes arrêts proposés",
+    "status": {
+      "PENDING": "En attente",
+      "ACTIVE": "Approuvé",
+      "REJECTED": "Non retenu"
+    }
   }
 }

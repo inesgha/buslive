@@ -3,6 +3,7 @@ import {
   LINE_TYPES,
   LiveSessionEndReasonSchema,
   LOCALES,
+  MODERATION_ACTION_TYPES,
   NOTIFICATION_TYPES,
   PUSH_PLATFORMS,
   REPORT_STATUSES,
@@ -20,6 +21,7 @@ import {
   LineType,
   LiveSessionEndReason,
   Locale,
+  ModerationActionType,
   NotificationType,
   PushPlatform,
   ReportStatus,
@@ -53,6 +55,7 @@ describe('Synchronisation des enums Prisma ↔ @buslive/shared', () => {
     ['RideOfferStatus', RideOfferStatus, RIDE_OFFER_STATUSES],
     ['RideRequestStatus', RideRequestStatus, RIDE_REQUEST_STATUSES],
     ['RideFlagReason', RideFlagReason, RIDE_FLAG_REASONS],
+    ['ModerationActionType', ModerationActionType, MODERATION_ACTION_TYPES],
   ] as const)('%s', (_name, prismaEnum, sharedValues) => {
     expect(Object.values(prismaEnum)).toEqual([...sharedValues]);
   });

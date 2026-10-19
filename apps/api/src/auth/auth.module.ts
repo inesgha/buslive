@@ -6,6 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import type { Env } from '../config/env.schema';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
+import { WebAuthController } from './web-auth.controller';
 import { AuthService } from './auth.service';
 import { JWT_AUDIENCE, JWT_ISSUER } from './auth.types';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -35,7 +36,7 @@ import { RefreshTokenService } from './refresh-token.service';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, WebAuthController],
   providers: [
     AuthService,
     PasswordService,
@@ -45,5 +46,7 @@ import { RefreshTokenService } from './refresh-token.service';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
+  // La suspension d'un compte (modération) révoque toutes ses sessions.
+  exports: [RefreshTokenService],
 })
 export class AuthModule {}

@@ -18,6 +18,6 @@ import { TrustService } from './trust.service';
   controllers: [ReportsController],
   providers: [ReportsService, TrustService, ObservationsService, StatsService, ReportEvents],
   // ReportEvents : le module des notifications s'abonne aux décisions.
-  exports: [ReportsService, ReportEvents],
+  exports: [ReportsService, ReportEvents, TrustService],
 })
 export class ReportsModule {}

@@ -18,6 +18,8 @@ export const TRUST_RULES = {
     VOTE_CORRECT: 2,
     VOTE_WRONG: -3,
     SHARING_COMPLETED: 2,
+    /** Arrêt proposé puis approuvé par un modérateur (phase 10). */
+    STOP_APPROVED: 5,
   },
   /** Partages récompensés au plus par jour. */
   maxRewardedSharingsPerDay: 3,
@@ -50,6 +52,7 @@ export const TRUST_EVENT_REASONS = [
   'VOTE_CORRECT',
   'VOTE_WRONG',
   'SHARING_COMPLETED',
+  'STOP_APPROVED',
 ] as const;
 export const TrustEventReasonSchema = z.enum(TRUST_EVENT_REASONS);
 export type TrustEventReason = z.infer<typeof TrustEventReasonSchema>;

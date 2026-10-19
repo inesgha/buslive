@@ -75,4 +75,6 @@ export const queryKeys = {
   ride: (id: string) => ['ride', id] as const,
   myRides: ['myRides'] as const,
   tripShares: ['tripShares'] as const,
+  // Arrêts proposés (phase 10) : données du compte.
+  myStopProposals: ['myStopProposals'] as const,
 };

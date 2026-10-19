@@ -21,6 +21,8 @@ export const NOTIFICATION_TYPES = [
   'RIDE_ACCEPTED', // au passager : demande acceptée (numéros échangés)
   'RIDE_DECLINED', // au passager : demande refusée
   'RIDE_CANCELLED', // aux passagers : le conducteur a annulé le trajet
+  // Modération (phase 10)
+  'STOP_PROPOSAL_REVIEWED', // mon arrêt proposé a été approuvé ou refusé
 ] as const;
 
 /** Types liés au covoiturage (même contenu, même canal). */
@@ -121,6 +123,15 @@ const RideEventDataSchema = z.object({
 });
 export type RideEventData = z.infer<typeof RideEventDataSchema>;
 
+const StopProposalReviewedDataSchema = z.object({
+  stopId: z.uuid(),
+  nameFr: z.string(),
+  nameAr: z.string(),
+  approved: z.boolean(),
+  /** Points de confiance gagnés (0 si refusé). */
+  points: z.number().int(),
+});
+
 const BusApproaching = z.object({
   type: z.literal('BUS_APPROACHING'),
   data: BusApproachingDataSchema,
@@ -135,6 +146,10 @@ const RideRequested = z.object({ type: z.literal('RIDE_REQUESTED'), data: RideEv
 const RideAccepted = z.object({ type: z.literal('RIDE_ACCEPTED'), data: RideEventDataSchema });
 const RideDeclined = z.object({ type: z.literal('RIDE_DECLINED'), data: RideEventDataSchema });
 const RideCancelled = z.object({ type: z.literal('RIDE_CANCELLED'), data: RideEventDataSchema });
+const StopProposalReviewed = z.object({
+  type: z.literal('STOP_PROPOSAL_REVIEWED'),
+  data: StopProposalReviewedDataSchema,
+});
 
 /** Contenu d'une notification : son type et les données qui vont avec. */
 export const NotificationContentSchema = z.discriminatedUnion('type', [
@@ -146,6 +161,7 @@ export const NotificationContentSchema = z.discriminatedUnion('type', [
   RideAccepted,
   RideDeclined,
   RideCancelled,
+  StopProposalReviewed,
 ]);
 export type NotificationContent = z.infer<typeof NotificationContentSchema>;
 
@@ -165,6 +181,7 @@ export const NotificationSchema = z.discriminatedUnion('type', [
   RideAccepted.extend(meta),
   RideDeclined.extend(meta),
   RideCancelled.extend(meta),
+  StopProposalReviewed.extend(meta),
 ]);
 export type Notification = z.infer<typeof NotificationSchema>;
 
@@ -293,6 +310,29 @@ export function renderNotification(
     case 'RIDE_DECLINED':
     case 'RIDE_CANCELLED':
       return renderRide(content.type, content.data, locale);
+    case 'STOP_PROPOSAL_REVIEWED': {
+      const d = content.data;
+      if (ar) {
+        return d.approved
+          ? {
+              title: `تمّت الموافقة على المحطة المقترحة (+${arabicPoints(d.points)})`,
+              body: `أصبحت محطة «${d.nameAr}» ظاهرة للجميع. شكرًا!`,
+            }
+          : {
+              title: 'لم يتمّ قبول المحطة المقترحة',
+              body: `لم يتمكّن المشرفون من التحقّق من محطة «${d.nameAr}».`,
+            };
+      }
+      return d.approved
+        ? {
+            title: `Arrêt proposé approuvé (+${d.points} points)`,
+            body: `L’arrêt « ${d.nameFr} » est maintenant visible par tous. Merci !`,
+          }
+        : {
+            title: 'Arrêt proposé non retenu',
+            body: `Les modérateurs n’ont pas pu confirmer l’arrêt « ${d.nameFr} ».`,
+          };
+    }
     case 'TEST':
       return ar
         ? { title: 'BusLive', body: 'الإشعارات تعمل على هذا الهاتف.' }
@@ -404,6 +444,7 @@ export function notificationUrl(content: NotificationContent): string {
     case 'LINE_INCIDENT':
       return `/lines/${content.data.lineId}`;
     case 'REPORT_RESOLVED':
+    case 'STOP_PROPOSAL_REVIEWED':
       return '/profile';
     case 'RIDE_REQUESTED':
     case 'RIDE_ACCEPTED':

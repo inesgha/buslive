@@ -156,6 +156,23 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
   `npx expo export --platform android --output-dir <dossier temporaire>`.
 - Expo réécrit `tsconfig.json#include` au démarrage : garder `["**/*.ts", "**/*.tsx"]`.
 
+## Particularités de l'admin (apps/admin)
+
+- React 19.3 + Vite 8 + React Router **7** (la 8 exige Node ≥ 22.22) + TanStack
+  Query + Leaflet (react-leaflet 5). Tests : Vitest 5 + jsdom **29** (la 30 exige
+  Node ≥ 22.22) + Testing Library. Interface en français seulement.
+- Session : `src/api/http.ts`. Refresh token en cookie httpOnly (jamais lisible
+  ici), access token en mémoire, une seule requête `/auth/web/refresh` à la fois.
+  En développement, Vite transmet `/api` à `localhost:3000` (même origine).
+- CSP ajoutée à `index.html` AU BUILD seulement (`vite.config.ts`) : Vite injecte
+  des scripts intégrés en développement. Jamais de `dangerouslySetInnerHTML`.
+- Carte : `components/StopMap.tsx`. Couleurs en hexadécimal (`MAP_COLORS`) :
+  Leaflet écrit des attributs SVG, qui n'acceptent pas `var(--…)`. Les pages
+  avec carte sont chargées à la demande (`React.lazy`) pour alléger le reste.
+- Les réponses de l'API sont validées par les schémas de `@buslive/shared`
+  (`src/api/admin.ts`). Les messages d'erreur de l'API (en français) sont
+  affichés tels quels.
+
 ## Particularités de l'API (apps/api)
 
 - NestJS 12 est publié **uniquement en ESM**. L'API reste compilée en **CommonJS**
@@ -291,6 +308,30 @@ Notifications : Firebase Cloud Messaging. Base locale : Docker Compose (PostGIS)
     JAMAIS l'enregistrer avec les passages observés (ils restent anonymes) ;
   - `LiveModule` exporte aussi `LiveRegistry` et `RouteCacheService` (lecture
     seule pour les liens de suivi).
+- **Admin et modération** (`src/admin/`, `src/proposals/`) :
+  - `AdminController` porte `@MinRole('MODERATOR')` au niveau de la classe ; les
+    routes sensibles ajoutent `@MinRole('ADMIN')` (la méthode l'emporte) ;
+  - TOUTE action de modération écrit au journal via `ModerationLogService.record`,
+    dans la même transaction que l'action. `moderation_actions` est en ajout seul
+    (trigger `moderation_actions_append_only`) : ne jamais essayer d'y modifier
+    ou supprimer une ligne. `details` : valeurs avant / après, sérialisables ;
+  - une décision sur un signalement passe par `ReportsService.moderate` (même
+    `finalize` que les votes : points une seule fois) ;
+  - files de modération : filtres partagés dans `admin.filters.ts` (le compteur
+    du tableau de bord = la liste) ;
+  - un modérateur n'agit que sur un rôle STRICTEMENT inférieur (`outranks`) ;
+    personne ne change son propre rôle ; changer un rôle ou suspendre révoque
+    les sessions (`RefreshTokenService.revokeAllForUser`) ;
+  - `suspended_at` : refusé à `login` ET à `refresh` (`checkNotSuspended`) ;
+  - session web (`WebAuthController`, `/auth/web/*`) : cookie `buslive_rt`
+    (`HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth/web`, `Secure` en
+    production), origine vérifiée contre `CORS_ORIGINS`, réservée aux
+    modérateurs. CORS a `credentials: true` (origines listées seulement) ;
+  - arrêts proposés : `stops` avec `status = PENDING` et `proposed_by_id` ;
+    `proposed_line_ids` n'est qu'une indication (pas de rattachement au parcours) ;
+  - premier administrateur : `pnpm --filter @buslive/api user:role <email> ADMIN`
+    (`prisma/scripts/set-role.ts`) ;
+  - les tests e2e fixent `CORS_ORIGINS=http://localhost:5173` (`test-env.cjs`).
 - `@buslive/shared` : `departures.ts` est séparé de `network.ts` pour éviter une
   dépendance circulaire avec `reports.ts` (avec zod, un cycle donne des schémas
   `undefined` au chargement).

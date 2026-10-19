@@ -10,6 +10,7 @@ import { session } from '@/auth/session';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { MyProposalsCard } from '@/components/MyProposalsCard';
 import { NotificationsCard } from '@/components/NotificationsCard';
 import { PhoneCard } from '@/components/PhoneCard';
 import { Screen } from '@/components/Screen';
@@ -78,6 +79,7 @@ export default function ProfileScreen() {
       {state.status === 'signedIn' ? <TrustCard /> : null}
       {state.status === 'signedIn' ? <NotificationsCard user={state.user} /> : null}
       {state.status === 'signedIn' ? <PhoneCard user={state.user} /> : null}
+      {state.status === 'signedIn' ? <MyProposalsCard /> : null}
 
       <Card style={styles.section}>
         <AppText variant="heading">{t('profile.language')}</AppText>

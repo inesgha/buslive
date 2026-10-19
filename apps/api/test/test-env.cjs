@@ -28,6 +28,8 @@ function applyTestEnv() {
   process.env.LIVE_BROADCAST_INTERVAL_MS = '50';
   // Notifications gardées en mémoire : les tests vérifient ce qui serait parti.
   process.env.PUSH_PROVIDER = 'memory';
+  // Origine du tableau de bord web (cookies de session, vérification de l'origine).
+  process.env.CORS_ORIGINS = 'http://localhost:5173';
   return url;
 }
 

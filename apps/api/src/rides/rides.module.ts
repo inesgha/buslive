@@ -9,5 +9,7 @@ import { RidesService } from './rides.service';
   imports: [NotificationsModule],
   controllers: [RidesController],
   providers: [RidesService],
+  // La modération annule les annonces signalées.
+  exports: [RidesService],
 })
 export class RidesModule {}

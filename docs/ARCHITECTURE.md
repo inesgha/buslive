@@ -198,6 +198,40 @@ trouvées par PostGIS, comme les arrêts. Elles seront modérées en phase 10.
 - La page ne charge aucune ressource extérieure (ni carte ni police) : l'adresse
   IP du destinataire n'est envoyée à personne d'autre que BusLive.
 
+## Tableau de bord et modération (phase 10, en place)
+
+```
+ passagers ──▶ signalements contestés, « arrêts déplacés », arrêts proposés, covoiturages signalés
+                                 │
+                                 ▼  files de modération (tableau de bord)
+ modérateur (apps/admin) ── décision ──▶ API /admin/… ──▶ action + journal (même transaction)
+                                                          points, notifications, suspension
+```
+
+- **Rôles** : USER < MODERATOR < ADMIN. Les modérateurs traitent les files ;
+  les administrateurs gèrent aussi les rôles et le réseau (gouvernorats,
+  arrêts, louages). L'API vérifie le rôle sur chaque route ; l'interface ne
+  fait que masquer ce qui n'est pas permis.
+- **Session web** : le refresh token est dans un cookie `HttpOnly`,
+  `SameSite=Strict`, limité à `/api/v1/auth/web`. L'origine des requêtes de
+  session est vérifiée (CSRF), et seul un modérateur obtient une session. Les
+  routes de l'app mobile n'ont pas changé.
+- **Journal de modération** : en ajout seul (un trigger PostgreSQL refuse toute
+  modification ou suppression). Il garde les valeurs avant et après.
+- **Suspension** : connexion refusée et sessions révoquées. Un modérateur ne
+  peut agir que sur un compte de rôle inférieur au sien.
+- **Arrêts proposés** : créés avec le statut `PENDING`, donc invisibles (filtres
+  `VISIBLE_*`). Il faut être sur place pour en proposer un (contrôle fait par
+  l'app), à 30 m au moins d'un arrêt existant, dans une zone couverte. Un arrêt
+  approuvé rapporte +5 points au proposant. Les lignes indiquées par le
+  passager restent une **indication** : rattacher un arrêt au parcours d'une
+  ligne viendra avec l'import GTFS (phase 11).
+- **Limites connues** :
+  - le changement de rôle et la suspension prennent pleinement effet à
+    l'expiration de l'access token en cours (15 min au plus) ;
+  - le cache des parcours (10 min) peut garder l'ancienne position d'un arrêt
+    déplacé quelques minutes.
+
 ## Modèle du réseau (phase 3, en place)
 
 Le modèle est inspiré de GTFS, le format standard des réseaux de transport, en

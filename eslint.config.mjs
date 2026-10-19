@@ -66,6 +66,15 @@ export default defineConfig(
       globals: { ...globals.jest, __DEV__: 'readonly' },
     },
   },
+  {
+    // Tableau de bord web (React + Vite) : règles des hooks React et variables
+    // globales du navigateur.
+    files: ['apps/admin/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat.recommended],
+    languageOptions: {
+      globals: { ...globals.browser },
+    },
+  },
   // Toujours en dernier : désactive les règles de style gérées par Prettier.
   prettier,
 );

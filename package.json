@@ -15,6 +15,7 @@
     "test:e2e": "pnpm build:shared && pnpm -r --if-present run test:e2e",
     "dev:api": "pnpm build:shared && pnpm --filter @buslive/api run dev",
     "dev:mobile": "pnpm build:shared && pnpm --filter @buslive/mobile run start",
+    "dev:admin": "pnpm build:shared && pnpm --filter @buslive/admin run dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",

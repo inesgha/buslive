@@ -22,7 +22,9 @@ export function setupApp(app: INestApplication): void {
   // Seules les origines listées dans CORS_ORIGINS peuvent appeler l'API depuis
   // un navigateur. L'app mobile native n'est pas concernée par CORS.
   const corsOrigins = config.get('CORS_ORIGINS', { infer: true });
-  app.enableCors({ origin: corsOrigins });
+  // credentials : le tableau de bord web envoie son cookie de session, mais
+  // SEULEMENT aux origines listées (jamais « * »).
+  app.enableCors({ origin: corsOrigins, credentials: true });
   // Socket.io (bus en direct, espace « /live ») : mêmes origines autorisées.
   app.useWebSocketAdapter(new ConfiguredIoAdapter(app, corsOrigins));
 

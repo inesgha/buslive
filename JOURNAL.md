@@ -1568,3 +1568,198 @@ feat(alternatives): louages, covoiturage et « Partager mon trajet »
 - lien de suivi secret (empreinte en base) et page web /t/<jeton> sans donnée personnelle
 - mobile : écran Alternatives, trajets de covoiturage, partage du trajet en cours
 ```
+
+## Phase 10 — Tableau de bord admin et modération (19/10/2026)
+
+Choix validés avant de commencer :
+
+- propositions d'**arrêts seulement** (les lignes et les horaires viendront par
+  un import GTFS en phase 11) ;
+- session web par **cookie httpOnly** ;
+- édition du réseau limitée aux **gouvernorats, arrêts et louages**.
+
+### Ce qui a été fait et pourquoi
+
+**Règles et formats (`@buslive/shared`, `admin.ts`, testés)**
+
+- Formats de toutes les routes admin : tableau de bord, files de modération,
+  comptes, réseau, journal.
+- `STOP_PROPOSAL_RULES` : 5 propositions par jour, refus à moins de 30 m d'un
+  arrêt existant, précision GPS de 50 m au moins, score de confiance minimal.
+- Nouvelle raison de points `STOP_APPROVED` (+5), et nouvelle notification
+  « arrêt proposé examiné », en français et en arabe.
+
+**API**
+
+- **Base** (migration `moderation`) :
+  - `users.suspended_at` ;
+  - `stops.proposed_line_ids` et `reviewed_at` ;
+  - `reports.moderated_at` et `ride_flags.resolved_at` ;
+  - la table **`moderation_actions`**, en **ajout seul** : un trigger PostgreSQL
+    refuse toute modification ou suppression, et un test le prouve.
+- **Session web** (`/auth/web/login`, `refresh`, `logout`) :
+  - le refresh token est posé dans un **cookie `HttpOnly`, `SameSite=Strict`**,
+    limité à `/api/v1/auth/web`, et `Secure` en production. Il n'apparaît
+    jamais dans le corps des réponses ;
+  - l'origine de la requête est vérifiée contre `CORS_ORIGINS` (protection
+    CSRF) ;
+  - **seuls les modérateurs** obtiennent une session ;
+  - la rotation et la détection de vol sont les mêmes que pour l'app mobile,
+    dont les routes n'ont pas changé.
+- **Suspension** : connexion et rafraîchissement refusés, toutes les sessions
+  révoquées.
+- **Module `admin`** (`@MinRole('MODERATOR')` sur tout le contrôleur, `ADMIN`
+  sur les routes sensibles) :
+  - **tableau de bord** : comptes, partages en direct, signalements par
+    statut, lignes les plus signalées, covoiturage, notifications, et les 4
+    files à traiter ;
+  - **signalements** : confirmer ou démentir **par le même chemin que les
+    votes** (les points ne sont versés qu'une fois), ou masquer ;
+  - **arrêts déplacés** confirmés : appliquer la position ou classer, une seule
+    fois ;
+  - **arrêts proposés** : approuver, avec correction possible du nom et de la
+    position (+5 points et une notification pour le proposant), ou refuser ;
+  - **covoiturage signalé** : annuler le trajet (passagers prévenus) ou
+    classer ;
+  - **comptes** : recherche, suspension (seulement sur un rôle **inférieur**
+    au sien), rôles (ADMIN seulement, jamais le sien). Changer un rôle force
+    une reconnexion ;
+  - **réseau** (ADMIN) : ouvrir un gouvernorat, corriger un arrêt, créer,
+    modifier ou archiver une station de louage avec ses tarifs ;
+  - **journal** : chaque action y est écrite **dans la même transaction**,
+    avec les valeurs avant et après.
+- **Propositions d'arrêts** (`POST /stops/proposals`, `GET /me/stop-proposals`) :
+  - l'arrêt est créé en `PENDING`, donc **invisible** dans l'app ;
+  - le gouvernorat et la localité sont repris de l'arrêt voisin ;
+  - une zone non couverte est refusée.
+- **Premier administrateur** : `pnpm --filter @buslive/api user:role <email> ADMIN`.
+
+**Admin web (`apps/admin`, nouveau)**
+
+- React, Vite, React Router, TanStack Query et Leaflet.
+- **Pages** : connexion, tableau de bord, signalements, arrêts (cartes « position
+  actuelle / proposée », correction par un clic sur la carte), covoiturage,
+  comptes, réseau, journal.
+- **Sécurité** :
+  - access token en mémoire seulement ;
+  - **CSP** stricte ajoutée au build ;
+  - aucun HTML injecté ;
+  - le rôle est vérifié par l'API sur chaque route.
+- Les pages avec une carte sont chargées à la demande, ce qui allège le reste
+  de l'admin (Leaflet est dans un fichier à part).
+
+**Mobile**
+
+- **Appui long sur la carte** → « Proposer un arrêt » : nom en français, nom en
+  arabe facultatif, lignes probables (déduites des arrêts voisins). Il faut être
+  **sur place** (à moins de 150 m) ; la position sert seulement à ce contrôle.
+- Profil → « Mes arrêts proposés », avec leur statut.
+
+### Écarts et problèmes rencontrés
+
+- **Versions** : React Router 8 et jsdom 30 exigent Node 22.22. J'ai pris React
+  Router 7 et jsdom 29 (c'est noté dans CLAUDE.md).
+- **Schéma Prisma** : mon premier script a ajouté les champs de proposition au
+  modèle `Line` au lieu de `Stop` (les deux ont un champ `proposedById`). Je
+  l'ai repéré dans le SQL généré, avant application, puis corrigé et recréé.
+- **Carte** : Leaflet écrit les couleurs comme attributs SVG, qui n'acceptent
+  pas les variables CSS : j'utilise des couleurs fixes.
+- **Bundle de l'admin** : 589 Ko en un seul fichier. En chargeant les pages avec
+  carte à la demande, on passe à 424 Ko (129 Ko compressés), plus Leaflet à part.
+- **Limites assumées** :
+  - une suspension ou un changement de rôle ne prend pleinement effet qu'à
+    l'expiration de l'access token en cours (15 min au plus) ;
+  - le cache des parcours peut garder l'ancienne position d'un arrêt déplacé
+    pendant quelques minutes ;
+  - un arrêt approuvé n'est pas rattaché au parcours d'une ligne : ce sera fait
+    avec l'import GTFS.
+
+### Fichiers créés ou modifiés
+
+```
+packages/shared/src/admin.ts, admin.test.ts (créés), notifications.ts, trust.ts, index.ts
+apps/api/prisma/schema.prisma, migrations/20261019114110_moderation/, prisma/scripts/set-role.ts (créé)
+apps/api/src/admin/ (créé) : admin.module.ts, admin.controller.ts, admin.filters.ts,
+     admin-dashboard.service.ts, admin-moderation.service.ts, admin-users.service.ts,
+     admin-network.service.ts, moderation-log.service.ts
+apps/api/src/proposals/ (créé) : proposals.module.ts, proposals.controller.ts, proposals.service.ts
+apps/api/src/auth/web-auth.controller.ts (créé), auth.service.ts, auth.module.ts,
+     refresh-token.service.ts
+apps/api/src/reports/reports.service.ts (moderate), reports.module.ts, rides/rides.service.ts,
+     rides.module.ts, setup-app.ts (CORS), app.module.ts, users/enums-sync.test.ts, package.json
+apps/api/test/admin.e2e-test.ts (créé), utils.ts, test-env.cjs
+apps/admin/ (créé) : package.json, vite.config.ts, tsconfig.json, index.html, .env.example,
+     README.md, src/main.tsx, App.tsx, styles.css, api/http.ts (+ test), api/admin.ts,
+     auth/AuthProvider.tsx, components/Layout.tsx, StopMap.tsx, lib/format.ts (+ test),
+     pages/*.tsx (+ LoginPage.test.tsx), test/setup.ts
+apps/mobile/app/stops/propose.tsx (créé), (tabs)/index.tsx (appui long), (tabs)/profile.tsx,
+     _layout.tsx, src/api/proposals.ts, src/proposals/proposalForm.ts (+ test),
+     src/components/MyProposalsCard.tsx (créés), src/api/network.ts, queryClient.ts,
+     src/i18n/locales/fr.json, ar.json
+eslint.config.mjs (bloc admin), package.json (dev:admin), pnpm-lock.yaml
+CLAUDE.md, README.md, docs/ARCHITECTURE.md, apps/api/README.md, apps/mobile/README.md, JOURNAL.md
+```
+
+### Commandes pour lancer et tester
+
+```bash
+pnpm install
+pnpm --filter @buslive/api prisma:deploy
+pnpm --filter @buslive/api user:role ton-email@exemple.tn ADMIN
+pnpm dev:api          # puis, dans un second terminal :
+pnpm dev:admin        # http://localhost:5173
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e
+```
+
+Résultats obtenus :
+
+- lint, format et typecheck sans erreur (dans les 4 projets) ;
+- tests unitaires : 122 dans shared, 57 dans l'API, 120 dans le mobile, 8 dans
+  l'admin ;
+- tests e2e : **153**, dont 22 nouveaux sur l'admin. Ils vérifient notamment :
+  - les rôles : 403 pour un compte simple ou un modérateur sur les routes
+    ADMIN ;
+  - le cookie de session : `HttpOnly`, `SameSite=Strict`, chemin limité,
+    rotation, origine refusée, déconnexion ;
+  - les décisions, avec des points versés une seule fois ;
+  - le déplacement d'un arrêt appliqué ;
+  - une proposition invisible, puis approuvée et visible, avec ses points et
+    sa notification ; les refus pour doublon et pour zone non couverte ;
+  - le covoiturage annulé ;
+  - la suspension (connexion refusée, sessions révoquées) ;
+  - les rôles ;
+  - le réseau (gouvernorat, arrêt, louage) ;
+  - un journal complet et **impossible à modifier ou effacer en SQL** ;
+- builds de l'API et de l'admin réussis ; `expo-doctor` : 20 sur 20 ; bundle
+  mobile de 5,5 Mo ;
+- écart schéma ↔ base : « empty migration ».
+
+**Pas testé dans un navigateur ni sur un téléphone** : j'ai seulement vérifié que
+le serveur de développement de l'admin démarre et sert la page.
+
+### À configurer soi-même
+
+1. Appliquer la migration (`prisma:deploy`).
+2. **Te nommer administratrice** :
+   `pnpm --filter @buslive/api user:role <ton email> ADMIN`, puis te connecter
+   sur <http://localhost:5173>.
+3. Vérifier que `CORS_ORIGINS` (dans `apps/api/.env`) contient
+   `http://localhost:5173`. C'est le cas de la valeur d'exemple.
+4. Faire relire les nouveaux textes arabes (proposition d'arrêt, notification).
+5. **Plus tard (phase 11)** :
+   - servir l'admin et l'API sous le même site, en HTTPS ;
+   - importer les lignes et les horaires (GTFS) ;
+   - garder un œil sur la proportion de signalements démentis dans le tableau
+     de bord, pour ajuster `TRUST_RULES`.
+
+### Message de commit proposé
+
+```
+feat(admin): tableau de bord, modération et arrêts proposés
+
+- API /admin : tableau de bord, signalements, arrêts déplacés et proposés, covoiturage signalé
+- comptes : suspension (sessions révoquées), rôles ; réseau : gouvernorats, arrêts, louages
+- journal de modération en ajout seul (trigger PostgreSQL), écrit dans la même transaction
+- session web par cookie httpOnly SameSite=Strict, origine vérifiée, réservée aux modérateurs
+- apps/admin (React + Vite + Leaflet) ; mobile : proposer un arrêt sur place, mes propositions
+```

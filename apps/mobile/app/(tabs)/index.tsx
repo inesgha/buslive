@@ -110,6 +110,16 @@ export default function MapScreen() {
           showsMyLocationButton
           onRegionChangeComplete={onRegionChangeComplete}
           onPress={() => setSelectedStopId(null)}
+          // Appui long : proposer un arrêt manquant à cet endroit.
+          onLongPress={(event) =>
+            router.push({
+              pathname: '/stops/propose',
+              params: {
+                lat: String(event.nativeEvent.coordinate.latitude),
+                lng: String(event.nativeEvent.coordinate.longitude),
+              },
+            })
+          }
         >
           {stops.map((stop) => (
             <Marker
@@ -184,6 +194,9 @@ export default function MapScreen() {
         ) : (
           <>
             <AppText variant="heading">{t('map.nearbyStops')}</AppText>
+            <AppText variant="caption" color="textMuted">
+              {t('proposal.mapHint')}
+            </AppText>
             {nearby.isPending ? (
               <ActivityIndicator color={colors.text} accessibilityLabel={t('common.loading')} />
             ) : nearby.error && !nearby.data ? (

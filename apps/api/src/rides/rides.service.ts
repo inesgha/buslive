@@ -131,7 +131,17 @@ export class RidesService {
   /** Annulation par le conducteur : les passagers (en attente ou acceptés) sont prévenus. */
   async cancel(driverId: string, id: string, now = new Date()): Promise<RideOfferDetail> {
     const offer = await this.loadOwn(driverId, id);
-    if (offer.status === 'CANCELLED') return toRideDetail(offer, driverId);
+    return toRideDetail(await this.cancelOffer(offer, now), driverId);
+  }
+
+  /** Annulation par un modérateur (annonce signalée) : mêmes effets pour les passagers. */
+  async cancelByModerator(id: string, now = new Date()): Promise<void> {
+    await this.cancelOffer(await this.load(id), now);
+  }
+
+  private async cancelOffer(offer: RideWithRelations, now: Date): Promise<RideWithRelations> {
+    const id = offer.id;
+    if (offer.status === 'CANCELLED') return offer;
     const { count } = await this.prisma.rideOffer.updateMany({
       where: { id, status: 'ACTIVE' },
       data: { status: 'CANCELLED', cancelledAt: now },
@@ -150,7 +160,7 @@ export class RidesService {
         }
       }
     }
-    return toRideDetail(updated, driverId);
+    return updated;
   }
 
   /**
