@@ -33,7 +33,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: corepack enable
       - name: Cache du magasin pnpm
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -84,7 +84,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: corepack enable
       - name: Cache du magasin pnpm
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
