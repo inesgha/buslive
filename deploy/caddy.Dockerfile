@@ -21,6 +21,6 @@ ENV VITE_BASE_PATH=/admin/ VITE_API_URL=/api/v1
 RUN pnpm --filter @buslive/shared run build && pnpm --filter @buslive/admin run build
 
 # --- Caddy --------------------------------------------------------------------------
-FROM caddy:2.10-alpine
+FROM caddy:2.11-alpine
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=admin /app/apps/admin/dist /srv/admin
