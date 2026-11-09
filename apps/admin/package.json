@@ -13,12 +13,12 @@
   },
   "dependencies": {
     "@buslive/shared": "workspace:*",
-    "@tanstack/react-query": "^5.104.4",
+    "@tanstack/react-query": "^5.106.1",
     "leaflet": "^1.9.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-leaflet": "^5.0.0",
-    "react-router": "^7.18.4",
+    "react-router": "^7.18.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -27,10 +27,10 @@
     "@types/leaflet": "^1.9.22",
     "@types/react": "~19.3.0",
     "@types/react-dom": "~19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
+    "@vitejs/plugin-react": "^6.2.1",
     "jsdom": "^29.1.1",
     "typescript": "~6.0.3",
-    "vite": "^8.3.4",
-    "vitest": "^5.0.5"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   }
 }
